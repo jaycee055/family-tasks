@@ -90,7 +90,6 @@ h2{margin:0;font-size:17px;font-weight:600}
 @keyframes pop{from{transform:scale(.3);opacity:0}}
 .cheer{margin:0;font-size:18px;font-weight:600;line-height:1.45;color:var(--navy);max-width:380px}
 @media (prefers-reduced-motion:reduce){.bigcheck,.toast{animation:none}}
-.tchip.idea{display:inline-flex;align-items:center;gap:6px;background:var(--teal-l);border-color:var(--teal);color:var(--teal-d);font-weight:600}
 .input.area{height:auto;min-height:84px;padding:12px 14px;line-height:1.5;resize:vertical;font-size:14px}
 .notes{white-space:pre-line;background:var(--field);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.55;max-height:220px;overflow-y:auto}
 .tchips{display:flex;flex-wrap:wrap;gap:8px}
@@ -319,7 +318,6 @@ var ICON = {
   undo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
   megaphone: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>',
   edit: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
-  dumbbell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>',
   house: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 15l2 2 4-4"/></svg>'
 };
 var ERRORS = {
@@ -592,69 +590,6 @@ function navView() {
     '<nav class="nav">' + b('today', ICON.home, 'Home') + b('plan', ICON.cal, 'Plan') + '<div class="gap"></div>' + b('family', ICON.family, gt().nav) + b('me', ICON.me, 'Me') + '</nav>';
 }
 
-// Home workout ideas (no equipment unless noted). Tapping one fills in a task.
-var WORKOUTS = {
-  all: [
-    { t: 'Jumping jacks', m: 5, lv: 'Beginner', rep: 'daily', n: '3 rounds of 30 seconds, rest 30 seconds between.\n1. Stand with feet together, arms down.\n2. Jump feet wide while raising arms overhead.\n3. Jump back. Keep a steady rhythm.\nEasier: step side to side instead of jumping.' },
-    { t: 'Push-ups', m: 10, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 8–12, rest 1 minute.\n1. Hands under shoulders, body in a straight line.\n2. Lower your chest toward the floor.\n3. Push back up.\nEasier: knees on the floor, or hands on a wall or table.' },
-    { t: 'Bodyweight squats', m: 10, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 15, rest 1 minute.\n1. Feet shoulder-width apart.\n2. Sit back like into a chair, chest up.\n3. Stand up by pushing through your heels.\nTip: knees follow your toes.' },
-    { t: 'Plank hold', m: 5, lv: 'Beginner', rep: 'daily', n: '3 holds of 20–40 seconds.\n1. Forearms on the floor, elbows under shoulders.\n2. Body straight from head to heels.\n3. Squeeze your tummy and breathe.\nEasier: knees down.' },
-    { t: 'Lunges', m: 10, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 10 per leg.\n1. Step one foot forward.\n2. Lower until both knees bend about 90°.\n3. Push back to standing and switch legs.\nHold a chair for balance if needed.' },
-    { t: 'Mountain climbers', m: 5, lv: 'Intermediate', rep: 'weekdays', n: '4 rounds of 20 seconds, rest 20 seconds.\n1. Start in a high plank.\n2. Drive one knee toward your chest, then switch quickly.\n3. Keep hips low.\nEasier: step the knees in slowly.' },
-    { t: 'Stair or step-ups', m: 10, lv: 'Beginner', rep: 'daily', n: '3 sets of 1 minute.\n1. Use the bottom stair or a sturdy step.\n2. Step up with one foot, then the other.\n3. Step down and repeat. Switch the leading foot each set.' },
-    { t: 'March in place', m: 15, lv: 'Beginner', rep: 'daily', n: 'March for 15 minutes while watching TV or listening to music.\nLift knees and swing arms. Go faster for 30 seconds every few minutes.' },
-    { t: 'Burpees', m: 8, lv: 'Intermediate', rep: 'weekdays', n: '4 sets of 6–10, rest 1 minute.\n1. Squat down, hands on the floor.\n2. Jump or step feet back to a plank.\n3. Jump or step back in, then stand and reach up.' },
-    { t: 'Full-body stretch', m: 10, lv: 'Easy', rep: 'daily', n: 'Hold each stretch for 30 seconds, breathe slowly.\n1. Reach arms overhead.\n2. Touch toward your toes.\n3. Quad stretch (hold one foot behind you), each side.\n4. Chest opener: hands behind back.\n5. Neck rolls, slowly.' }
-  ],
-  women: [
-    { t: 'Glute bridges', m: 10, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 15, squeeze 2 seconds at the top.\n1. Lie on your back, knees bent, feet flat.\n2. Lift hips until body is straight from shoulders to knees.\n3. Lower slowly.\nHarder: one leg at a time.' },
-    { t: 'Donkey kicks', m: 8, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 15 per leg.\n1. On hands and knees.\n2. Keeping the knee bent, lift one foot toward the ceiling.\n3. Lower with control. Keep your back flat.' },
-    { t: 'Fire hydrants', m: 8, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 12 per side.\n1. On hands and knees.\n2. Lift one bent knee out to the side.\n3. Lower slowly. Keep hips level.' },
-    { t: 'Side-lying leg raises', m: 8, lv: 'Beginner', rep: 'weekdays', n: '3 sets of 15 per side.\n1. Lie on your side, legs straight.\n2. Lift the top leg up, toes pointing forward.\n3. Lower slowly without touching down.' },
-    { t: 'Curtsy lunges', m: 10, lv: 'Intermediate', rep: 'weekdays', n: '3 sets of 10 per side.\n1. Stand tall.\n2. Step one leg diagonally behind the other, like a curtsy.\n3. Bend both knees, then return. Hold a chair if needed.' },
-    { t: 'Arm toning with water bottles', m: 10, lv: 'Beginner', rep: 'weekdays', n: 'Use 2 filled water bottles. 3 sets of 12 each:\n1. Bicep curls.\n2. Shoulder press overhead.\n3. Tricep kickbacks (lean forward, push bottles back).\n4. Lateral raises (arms out to the side).' },
-    { t: 'Pilates-style core', m: 12, lv: 'Beginner', rep: 'weekdays', n: '40 seconds each, 20 seconds rest, 2 rounds:\n1. Dead bug.\n2. Bird dog.\n3. Heel taps (lying down, knees bent, tap heels to floor).\n4. Side plank on knees, each side.' },
-    { t: 'Pelvic floor exercises (Kegels)', m: 5, lv: 'Easy', rep: 'daily', n: '3 sets of 10.\n1. Sit or lie comfortably.\n2. Gently squeeze the muscles you use to stop peeing, hold 3–5 seconds.\n3. Relax fully for 3–5 seconds.\nBreathe normally. Do not hold your breath or squeeze your tummy or thighs.' },
-    { t: 'Dance cardio', m: 20, lv: 'Beginner', rep: 'weekdays', n: 'Play 5 favourite upbeat songs and keep moving the whole time.\nMix steps: side steps, arm circles, small jumps, hip moves.\nGo at your own pace and have fun.' },
-    { t: 'Gentle yoga flow', m: 15, lv: 'Easy', rep: 'daily', n: 'Hold each pose 5 slow breaths:\n1. Child’s pose.\n2. Cat–cow.\n3. Downward dog.\n4. Low lunge, each side.\n5. Seated forward fold.\n6. Lie down and relax 1 minute.' }
-  ],
-  plans: [
-    { t: '15-min beginner full body', m: 15, lv: 'Beginner', rep: 'weekdays', n: '40 seconds work, 20 seconds rest. Do the list 3 times.\n1. Jumping jacks (or step jacks)\n2. Squats\n3. Push-ups (knees or wall is fine)\n4. Glute bridges\n5. Plank\nWarm up 1 minute by marching in place.' },
-    { t: '20-min lower body and glutes', m: 20, lv: 'Beginner', rep: 'weekdays', n: '3 rounds, rest 1 minute between rounds:\n1. Squats x15\n2. Glute bridges x15\n3. Donkey kicks x12 each leg\n4. Fire hydrants x12 each side\n5. Curtsy lunges x8 each side\n6. Side-lying leg raises x12 each side' },
-    { t: '10-min morning wake-up', m: 10, lv: 'Easy', rep: 'daily', n: '1 minute each:\n1. Neck and shoulder rolls\n2. March in place\n3. Arm circles\n4. Squats, slowly\n5. Cat–cow\n6. Standing side stretch\n7. Jumping jacks or step jacks\n8. Plank (or knees down)\n9. Forward fold\n10. Deep breathing' },
-    { t: '25-min family workout', m: 25, lv: 'Easy', rep: 'weekly', n: 'Do it together! 1 minute each, 3 rounds:\n1. Dance to one song\n2. Squats\n3. Animal walks (bear crawl, crab walk)\n4. Jumping jacks\n5. Wall sit contest\n6. Stretch and high-fives\nKids go at their own pace.' },
-    { t: '15-min core and abs', m: 15, lv: 'Intermediate', rep: 'weekdays', n: '45 seconds work, 15 seconds rest, 3 rounds:\n1. Plank\n2. Bicycle crunches\n3. Dead bug\n4. Mountain climbers\n5. Side plank (switch halfway)' }
-  ]
-};
-var WORKOUT_TABS = [['all', 'For everyone'], ['women', 'For women'], ['plans', 'Full routines']];
-function workoutSheet() {
-  var tab = S.wTab || 'all';
-  function render2() {
-    var list = WORKOUTS[tab];
-    sheet('<div class="row between"><h2>Home workout ideas</h2></div>' +
-      '<div class="tchips" role="tablist">' + WORKOUT_TABS.map(function (x) { return '<button type="button" role="tab" class="tchip' + (x[0] === tab ? ' on' : '') + '" aria-selected="' + (x[0] === tab) + '" data-wt="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-      '<p class="small" style="margin:0">No equipment needed. Go at your own pace and stop if anything hurts. If you have a health condition, are pregnant or recently gave birth, check with your doctor first.</p>' +
-      '<div class="list" style="border:1.5px solid var(--line)">' + list.map(function (w, i) {
-        return '<button data-w="' + i + '"><span class="col grow" style="gap:2px;min-width:0"><span style="font-weight:600">' + esc(w.t) + '</span><span class="small">' + w.m + ' min · ' + esc(w.lv) + ' · ' + esc(w.n.split('\n')[0]) + '</span></span>' + ICON.next + '</button>';
-      }).join('') + '</div><button class="btn ghost" id="sNo">Close</button>', function (host) {
-      $('#sNo').onclick = closeSheet;
-      host.querySelectorAll('[data-wt]').forEach(function (b) { b.onclick = function () { tab = S.wTab = b.getAttribute('data-wt'); render2(); }; });
-      host.querySelectorAll('[data-w]').forEach(function (b) { b.onclick = function () { useWorkout(list[+b.getAttribute('data-w')]); }; });
-    });
-  }
-  render2();
-}
-function useWorkout(w) {
-  var e = S.edit; if (!e) return;
-  var keepTitle = $('#tt') ? $('#tt').value : '';
-  e.title = w.t; e.notes = w.n; e.repeat = e.id ? e.repeat : w.rep; e.cheer = { t: 'cat', c: 'fitness' };
-  var tm = $('#tm'); e.time = (tm && tm.value) || e.time;
-  if (!e.time) { var n = new Date(); n.setMinutes(n.getMinutes() < 30 ? 30 : 60, 0, 0); e.time = ('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2); }
-  var mins = +e.time.slice(0, 2) * 60 + +e.time.slice(3) + w.m; if (mins > 1439) mins = 1439;
-  e.endTime = ('0' + Math.floor(mins / 60)).slice(-2) + ':' + ('0' + mins % 60).slice(-2);
-  closeSheet(); render(); toast('Filled in: ' + w.t + '. Change anything you like.');
-}
-
 function cheerField(e) {
   var cur = e.cheer.t === 'custom' ? 'custom' : e.cheer.t === 'none' ? 'none' : (e.cheer.c || 'random');
   var chips = CHEER_ORDER.map(function (k) { return '<button type="button" class="tchip' + (k === cur ? ' on' : '') + '" data-cheer="' + k + '" aria-pressed="' + (k === cur) + '">' + esc(cheerLabel(k)) + '</button>'; }).join('');
@@ -673,8 +608,7 @@ function addView() {
   return '<div class="screen plain"><div class="header" style="padding-bottom:64px;flex-direction:row;align-items:center;gap:14px">' +
     '<button class="iconbtn" id="backBtn" aria-label="Back">' + ICON.back + '</button><h1 style="font-size:20px;font-weight:600">' + (e.id ? 'Edit task' : 'New task') + '</h1></div>' +
     '<form class="panel overlap" id="taskForm" novalidate>' +
-    '<div class="field"><label for="tt">What needs to be done?</label><input class="input" id="tt" maxlength="80" placeholder="e.g. Buy rice and eggs" value="' + esc(e.title) + '">' +
-    '<div class="tchips" style="margin-top:4px"><button type="button" class="tchip idea" id="wIdeas">' + ICON.dumbbell + 'Home workout ideas</button></div></div>' +
+    '<div class="field"><label for="tt">What needs to be done?</label><input class="input" id="tt" maxlength="80" placeholder="e.g. Buy rice and eggs" value="' + esc(e.title) + '"></div>' +
     '<div class="field"><label for="tn">Details <span class="small" style="font-weight:400">(optional)</span></label><textarea class="input area" id="tn" maxlength="400" rows="3" placeholder="Steps, what to buy, where to go…">' + esc(e.notes || '') + '</textarea></div>' +
     '<div class="field"><span class="lbl">Assign to</span><div class="chips">' + pick + '</div></div>' +
     '<div class="field"><label for="dd">' + (e.repeat === 'once' ? 'Date' : 'Starts on') + '</label><input class="input" id="dd" type="date" value="' + e.date + '"></div>' +
@@ -797,7 +731,6 @@ function bindAdd() {
     e.title = $('#tt').value; e.notes = $('#tn').value; e.date = $('#dd').value || e.date; e.time = $('#tm').value; e.endTime = $('#te').value;
     var ed = $('#ed'); e.endDate = ed ? ed.value : ''; var cx = $('#cx'); if (cx) e.cheer.x = cx.value;
   }
-  $('#wIdeas').onclick = function () { keep(); workoutSheet(); };
   document.querySelectorAll('[data-dur]').forEach(function (b) { b.onclick = function () {
     keep(); var m = b.getAttribute('data-dur');
     if (!m) { e.endTime = ''; render(); return; }
