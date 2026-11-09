@@ -268,6 +268,7 @@ function authView() {
     '<h2>' + (signup ? 'Create your account' : 'Log in') + '</h2>' +
     '<div class="field"><label for="u">Username</label><input class="input" id="u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jas"></div>' +
     '<div class="field"><label for="p">Password</label><input class="input" id="p" type="password" autocomplete="' + (signup ? 'new-password' : 'current-password') + '" placeholder="At least 6 characters"></div>' +
+    (signup ? '<div class="field"><label for="p2">Confirm password</label><input class="input" id="p2" type="password" autocomplete="new-password" placeholder="Type the password again"></div>' : '') +
     '<div class="err" id="authErr" role="alert"></div>' +
     '<button class="btn teal" id="authBtn" type="submit">' + (signup ? 'Create account' : 'Log in') + '</button>' +
     '<button class="linkbtn" type="button" id="authSwitch">' + (signup ? 'I already have an account' : 'New here? Create an account') + '</button>' +
@@ -280,7 +281,9 @@ function bindAuth() {
   $('#authSwitch').onclick = function () { S.authMode = S.authMode === 'signup' ? 'login' : 'signup'; render(); };
   $('#authForm').onsubmit = function (e) {
     e.preventDefault();
-    var btn = $('#authBtn'); btn.disabled = true; $('#authErr').textContent = '';
+    $('#authErr').textContent = '';
+    if (S.authMode === 'signup' && $('#p').value !== $('#p2').value) { $('#authErr').textContent = 'The passwords do not match. Please type them again.'; $('#p2').focus(); return; }
+    var btn = $('#authBtn'); btn.disabled = true;
     api(S.authMode === 'signup' ? 'signup' : 'login', { username: $('#u').value, password: $('#p').value, token: '' }).then(function (r) {
       btn.disabled = false;
       if (!r.ok) { $('#authErr').textContent = errText(r.error); return; }
