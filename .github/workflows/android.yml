@@ -1,0 +1,94 @@
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - android-app/**
+      - .github/workflows/android.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # The signing key lives in android-app/release.keystore so every new version installs over the old one
+      # without losing anything. To keep the password private, add a repository secret named
+      # ANDROID_KEYSTORE_PASSWORD with the same value and delete the fallback below.
+      KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || '__IJ9mgVbluL27XCP9cc1UZo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install Capacitor
+        working-directory: android-app
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare web files
+        working-directory: android-app
+        run: |
+          mkdir -p www/icons
+          cp ../index.html ../privacy.html www/
+          cp ../icons/*.png www/icons/
+
+      - name: Create Android project
+        working-directory: android-app
+        run: |
+          npx cap add android
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />#' $M
+          grep -q 'POST_NOTIFICATIONS' $M
+          mkdir -p android/app/src/main/res/drawable
+          cp res/drawable/ic_stat_notify.png android/app/src/main/res/drawable/
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]+\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      - name: App icon and splash screen
+        working-directory: android-app
+        continue-on-error: true
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#0F7C85' --iconBackgroundColorDark '#0F7C85' --splashBackgroundColor '#EAF6F7' --splashBackgroundColorDark '#14213D'
+
+      - name: Sync and build
+        working-directory: android-app
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Sign APK
+        working-directory: android-app
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)"
+          IN=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          "$BT/zipalign" -f -p 4 "$IN" aligned.apk
+          "$BT/apksigner" sign --ks release.keystore --ks-key-alias familytasks --ks-pass env:KS_PASS --key-pass env:KS_PASS --out ../FamilyTasks.apk aligned.apk
+          "$BT/apksigner" verify ../FamilyTasks.apk
+          ls -la ../FamilyTasks.apk
+
+      - name: Publish download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v1.0.${{ github.run_number }}
+          name: Family Tasks for Android 1.0.${{ github.run_number }}
+          make_latest: true
+          files: FamilyTasks.apk
+          body: |
+            Download **FamilyTasks.apk** below and open it on your Android phone.
+            If Android asks, allow installing apps from your browser or file manager.
+            Installing a newer version over an older one keeps your login and tasks.

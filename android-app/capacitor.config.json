@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.jaycee055.familytasks",
+  "appName": "Family Tasks",
+  "webDir": "www",
+  "android": { "backgroundColor": "#EAF6F7" },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_notify", "iconColor": "#0F7C85" }
+  }
+}

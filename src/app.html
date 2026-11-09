@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Family Tasks</title>
+<meta name="description" content="Daily goals, reminders and shared tasks for your family.">
+<meta name="theme-color" content="#0F7C85">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Family Tasks">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EAF6F7;--teal:#0F7C85;--teal-d:#0A5A61;--teal-l:#DDF2F4;--navy:#1F2B5E;--blue:#3767D6;--ink:#14213D;--muted:#52606D;--line:#C9E3E6;--field:#F6FBFC;--sun:#FFC857;--danger:#B42318;
+--top:env(safe-area-inset-top,0px);--bot:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg)}
+body{font-family:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);font-size:15px;line-height:1.4;overscroll-behavior-y:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--teal)}
+.hidden{display:none!important}
+.app{max-width:480px;margin:0 auto;min-height:100%;position:relative;background:var(--bg)}
+.screen{min-height:100vh;padding-bottom:calc(120px + var(--bot))}
+.screen.plain{padding-bottom:40px}
+.header{background:var(--teal);color:#fff;border-radius:0 0 32px 32px;padding:calc(20px + var(--top)) 20px 22px;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:16px}
+.header .blob{position:absolute;border-radius:99px;background:rgba(255,255,255,.08);pointer-events:none}
+.row{display:flex;align-items:center;gap:12px}
+.between{justify-content:space-between}
+.col{display:flex;flex-direction:column}
+.hello{font-size:13px;color:#D4F0F2}
+h1{margin:0;font-size:24px;font-weight:700;line-height:1.2}
+h2{margin:0;font-size:17px;font-weight:600}
+.iconbtn{width:46px;height:46px;border-radius:16px;border:none;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;color:#fff;text-decoration:none}
+.iconbtn .dot{position:absolute;top:9px;right:10px;width:10px;height:10px;border-radius:99px;background:var(--sun);border:2px solid var(--teal)}
+.avatars{display:flex;align-items:center}
+.av{width:42px;height:42px;border-radius:99px;color:var(--ink);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatars .av{border:3px solid var(--teal);margin-right:-8px}
+.avatars .add{background:#fff;margin-left:12px;border:3px solid var(--teal);text-decoration:none}
+.progress{background:#fff;color:var(--ink);border-radius:20px;padding:14px 16px;display:flex;align-items:center;gap:14px;position:relative}
+.ring{width:56px;height:56px;border-radius:99px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring>div{width:44px;height:44px;border-radius:99px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.small{font-size:12px;color:var(--muted)}
+.pad{padding:0 20px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.monthrow{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+.monthrow b{font-size:15px;font-weight:600}
+.navbtn{width:44px;height:44px;border:none;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:10px}
+.day{height:64px;border:none;border-radius:16px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;position:relative}
+.day span{font-size:11px;font-weight:500}.day b{font-size:16px;font-weight:700}
+.day.on{background:var(--navy);color:#fff}
+.day.today:not(.on){outline:2px solid var(--teal);outline-offset:-2px}
+.day i{position:absolute;bottom:7px;width:5px;height:5px;border-radius:9px;background:var(--teal)}
+.day.on i{background:var(--sun)}
+.tabs{display:flex;gap:8px;margin:18px 0 12px}
+.tab{height:42px;padding:0 16px;border-radius:99px;border:none;background:#fff;font-size:13px;font-weight:500}
+.tab.on{background:var(--teal);color:#fff;font-weight:600}
+.card{display:flex;gap:12px;border-radius:22px;padding:16px 14px 16px 18px;min-height:96px;box-shadow:0 6px 16px rgba(20,33,61,.08);align-items:stretch}
+.card.navy{background:var(--navy);color:#fff}.card.blue{background:var(--blue);color:#fff}.card.teal{background:var(--teal);color:#fff}.card.white{background:#fff;color:var(--ink)}
+.card.done{opacity:.72}
+.card .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;border:none;background:none;color:inherit;text-align:left;padding:0}
+.card .meta{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;opacity:.92}
+.card .title{font-size:16px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.card.done .title{text-decoration:line-through}
+.card .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:10px}
+.check{width:44px;height:44px;margin:-8px -8px 0 0;border:none;background:none;display:flex;align-items:center;justify-content:center;color:inherit}
+.check span{width:30px;height:30px;border-radius:99px;border:2px solid currentColor;display:flex;align-items:center;justify-content:center}
+.card.done .check span{background:var(--sun);border-color:var(--sun)}
+.card .av{width:32px;height:32px;font-size:11px;border:2px solid #fff}
+.empty{background:#fff;border-radius:22px;padding:28px 20px;text-align:center;color:var(--muted)}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(40px + var(--bot));width:66px;height:66px;border-radius:99px;background:var(--navy);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(31,43,94,.35);border:5px solid var(--bg);z-index:20}
+.nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;height:calc(74px + var(--bot));padding:0 22px var(--bot);background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -6px 20px rgba(15,124,133,.08);display:flex;justify-content:space-between;align-items:center;z-index:10}
+.nav button{border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:var(--muted);min-width:56px;min-height:52px;justify-content:center}
+.nav button.on{color:var(--teal);font-weight:600}
+.nav .gap{width:70px}
+.panel{background:#fff;border-radius:26px;padding:20px;display:flex;flex-direction:column;gap:18px;box-shadow:0 10px 30px rgba(20,33,61,.08)}
+.overlap{margin:-44px 16px 0;position:relative}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.lbl{font-size:13px;font-weight:600;color:#2E3B4E}
+.input{height:50px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:15px;background:var(--field);width:100%;min-width:0}
+.input:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:transparent}
+.code{border:1.5px dashed var(--teal);background:var(--teal-l);color:var(--teal-d);font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.pick{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;width:66px;border-radius:16px;border:2px solid transparent;background:none}
+.pick span:last-child{font-size:11px;font-weight:600;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick.on{background:var(--teal-l);border-color:var(--teal)}
+.pick .av{width:44px;height:44px}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:var(--bg);border-radius:14px;padding:5px}
+.seg button{height:42px;border:none;border-radius:10px;background:none;font-size:13px;font-weight:500;color:#2E3B4E}
+.seg button.on{background:var(--teal);color:#fff;font-weight:600}
+.notifyrow{display:flex;align-items:center;gap:12px;background:var(--field);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px}
+.bell{width:40px;height:40px;border-radius:12px;background:var(--sun);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.switch{width:52px;height:32px;border-radius:99px;border:none;padding:3px;display:flex;background:#8A9AA0;justify-content:flex-start;flex-shrink:0}
+.switch[aria-checked=true]{background:var(--teal);justify-content:flex-end}
+.switch span{width:26px;height:26px;border-radius:99px;background:#fff}
+.btn{height:54px;border:none;border-radius:18px;background:var(--navy);color:#fff;font-size:16px;font-weight:600;padding:0 20px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%}
+.btn.teal{background:var(--teal)}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+.btn.danger{background:#fff;color:var(--danger);border:1.5px solid #F2C4BF}
+.btn.sun{background:var(--sun);color:var(--ink)}
+.btn:disabled{opacity:.6}
+.linkbtn{border:none;background:none;color:var(--teal);font-weight:600;font-size:14px;padding:10px;min-height:44px}
+.invite{background:var(--navy);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.invite .big{font-size:30px;font-weight:700;letter-spacing:5px}
+.invite .btn{height:46px;font-size:14px;border-radius:14px}
+.invite .btn.line{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff}
+.member{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:12px 14px}
+.member .av{width:46px;height:46px;font-size:14px}
+.bar{width:70px;height:6px;border-radius:99px;background:var(--teal-l);overflow:hidden}.bar i{display:block;height:6px;background:var(--teal);border-radius:99px}
+.xbtn{width:44px;height:44px;border:none;background:none;border-radius:12px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.logo{width:76px;height:76px;border-radius:24px;background:var(--teal);display:flex;align-items:center;justify-content:center}
+.auth{padding:calc(48px + var(--top)) 22px 40px;display:flex;flex-direction:column;gap:24px}
+.center{text-align:center;align-items:center}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;font-weight:600}.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.err{color:var(--danger);font-size:13px;font-weight:500;min-height:0}
+.note{background:#FFF6DD;border:1px solid #F3DE9A;border-radius:16px;padding:12px 14px;font-size:13px;color:#5A4500}
+.toast{position:fixed;left:50%;top:calc(14px + var(--top));transform:translateX(-50%);width:calc(100% - 28px);max-width:440px;background:var(--ink);color:#fff;border-radius:16px;padding:12px 14px;display:flex;gap:12px;align-items:center;z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:drop .25s ease}
+@keyframes drop{from{transform:translate(-50%,-20px);opacity:0}}
+.sheetbg{position:fixed;inset:0;background:rgba(20,33,61,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#fff;width:100%;max-width:480px;border-radius:26px 26px 0 0;padding:22px 20px calc(22px + var(--bot));display:flex;flex-direction:column;gap:14px}
+.list{background:#fff;border-radius:20px;overflow:hidden}
+.list>*{display:flex;align-items:center;gap:12px;padding:14px 16px;min-height:56px;border:none;background:none;width:100%;text-align:left;border-bottom:1px solid #EEF3F4;font-size:15px;color:var(--ink);text-decoration:none}
+.list>*:last-child{border-bottom:none}
+.list .grow{flex:1}
+@media (min-width:700px){body{background:#D8ECEE}.app{box-shadow:0 0 40px rgba(20,33,61,.08)}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div id="toast"></div>
+<div id="sheet"></div>
+
+<script>
+/*CORE*/
+
+// ---------- Settings ----------
+// After you deploy backend/Code.gs, paste its /exec web-app address here (or open the app with #owner).
+var API_URL = "";
+var APP_URL = "https://jaycee055.github.io/family-tasks/";
+var APK_URL = "https://github.com/jaycee055/family-tasks/releases/latest/download/FamilyTasks.apk";
+
+var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+var PL = (window.Capacitor && window.Capacitor.Plugins) || {};
+var COLORS = ['#FFC857', '#FFB4A2', '#A9D2F5', '#B8E6C1', '#D9C8F5', '#FFD6A5', '#9FE2DE', '#F5B8D9'];
+var TONES = ['navy', 'blue', 'teal', 'white'];
+var WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// ---------- Small helpers ----------
+function $(s, r) { return (r || document).querySelector(s); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function parseYmd(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function addDays(s, n) { var d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
+function todayStr() { return ymd(new Date()); }
+function fmtTime(t) { if (!t) return 'Any time'; var h = +t.slice(0, 2), m = t.slice(3); return ((h + 11) % 12 + 1) + ':' + m + (h < 12 ? ' AM' : ' PM'); }
+function initials(n) { var w = String(n || '?').trim().split(/\s+/); return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase(); }
+var REPEAT_LABEL = { once: 'Once', daily: 'Daily', weekdays: 'Weekdays', weekly: 'Weekly' };
+function occurs(t, d) {
+  if (d < t.date) return false;
+  if (t.repeat === 'daily') return true;
+  if (t.repeat === 'weekdays') { var w = parseYmd(d).getDay(); return w > 0 && w < 6; }
+  if (t.repeat === 'weekly') return parseYmd(d).getDay() === parseYmd(t.date).getDay();
+  return d === t.date;
+}
+var ICON = {
+  bell: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  plus: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  next: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+  prev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  tick: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14213D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
+  home: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
+  cal: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  family: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.3 0 4 1.6 4.5 4"/></svg>',
+  me: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
+  copy: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+  share: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>',
+  x: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  house: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 15l2 2 4-4"/></svg>'
+};
+var ERRORS = {
+  bad_username: 'Username: 3–30 letters or numbers, no spaces.', weak_password: 'Password needs at least 6 characters.',
+  username_taken: 'That username is taken. Try another.', wrong_login: 'Wrong username or password.',
+  too_many_tries: 'Too many tries. Wait 15 minutes and try again.', bad_code: 'That invite code was not found. Check it with your family.',
+  group_full: 'This family group is full.', already_in_group: 'You are already in a family group.', not_logged_in: 'Please log in again.',
+  admins_only: 'Only the family admin can do that.', empty_title: 'Write what needs to be done.', not_allowed: 'Only the person who made or got this task can delete it.',
+  network: 'No internet connection. Try again when online.', signups_full_today: 'Too many new accounts today. Try tomorrow.', busy_try_again: 'Busy, please try again.'
+};
+function errText(e) { return ERRORS[e] || ('Something went wrong (' + e + ').'); }
+
+// ---------- Backend: Google Sheets (online) or demo mode (this phone only) ----------
+function apiUrl() { return ls('ft_api') || API_URL; }
+var demoCore = null;
+function demo() {
+  if (demoCore) return demoCore;
+  var data; try { data = JSON.parse(ls('ft_demo') || '{}'); } catch (e) { data = {}; }
+  function save() { ls('ft_demo', JSON.stringify(data)); }
+  var db = {
+    all: function (t) { return (data[t] = data[t] || []).slice(); },
+    insert: function (t, o) { (data[t] = data[t] || []).push(o); save(); },
+    update: function (t, m, p) { (data[t] || []).forEach(function (o) { if (m(o)) for (var k in p) o[k] = p[k]; }); save(); },
+    remove: function (t, m) { data[t] = (data[t] || []).filter(function (o) { return !m(o); }); save(); }
+  };
+  function hash(s, p) { var h = 2166136261, str = s + ':' + p; for (var r = 0; r < 50; r++) for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16); }
+  function rand(n) { var a = new Uint8Array(n); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (b) { return 'abcdefghijklmnopqrstuvwxyz0123456789'.charAt(b % 36); }).join(''); }
+  demoCore = makeCore(db, { hash: hash, rand: rand, now: function () { return Date.now(); } });
+  return demoCore;
+}
+function api(action, body) {
+  body = body || {}; body.action = action; body.token = body.token || S.token;
+  var url = apiUrl();
+  if (!url) return Promise.resolve(JSON.parse(JSON.stringify(demo()[action](body))));
+  return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); })
+    .catch(function () { return { ok: false, error: 'network' }; });
+}
+
+// ---------- State ----------
+var S = {
+  token: ls('ft_token'), data: null, view: 'today', date: todayStr(), tab: 'all', edit: null, busy: false,
+  lastEvent: Number(ls('ft_lastEvent') || 0), unread: 0
+};
+try { S.data = JSON.parse(ls('ft_cache') || 'null'); } catch (e) {}
+var pendingCode = (location.hash.match(/join=([A-Za-z0-9-]+)/) || [])[1] || ls('ft_pendingCode') || '';
+if (pendingCode) ls('ft_pendingCode', pendingCode);
+
+function members() { return (S.data && S.data.members) || []; }
+function member(id) { var m = members(); for (var i = 0; i < m.length; i++) if (m[i].userId === id) return m[i]; return null; }
+function colorOf(id) { var m = members(); for (var i = 0; i < m.length; i++) if (m[i].userId === id) return COLORS[i % COLORS.length]; return '#C9E3E6'; }
+function nickOf(id) { var m = member(id); return m ? m.nickname : 'Former member'; }
+function myId() { return S.data && S.data.me && S.data.me.id; }
+function tasksOn(d) {
+  return ((S.data && S.data.tasks) || []).filter(function (t) { return occurs(t, d); })
+    .sort(function (a, b) { return (a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : a.title < b.title ? -1 : 1; });
+}
+function isDone(t, d) { return t.done.indexOf(d) >= 0; }
+
+// ---------- Rendering ----------
+function render() {
+  var app = $('#app');
+  if (!S.token) { app.innerHTML = authView(); bindAuth(); return; }
+  if (!S.data || !S.data.group) { app.innerHTML = setupView(); bindSetup(); return; }
+  var v = S.view;
+  var html = v === 'add' ? addView() : v === 'family' ? familyView() : v === 'me' ? meView() : v === 'plan' ? planView() : todayView();
+  if (v !== 'add') html += navView();
+  app.innerHTML = html;
+  bindMain();
+}
+
+function authView() {
+  var signup = S.authMode === 'signup';
+  return '<div class="auth">' +
+    '<div class="col center" style="gap:14px"><div class="logo">' + ICON.house + '</div>' +
+    '<h1 style="font-size:30px">Family Tasks</h1><p class="small" style="margin:0;font-size:15px">Daily goals and reminders for your family, together in one place.</p></div>' +
+    (pendingCode ? '<div class="note">You were invited to a family. ' + (signup ? 'Create' : 'Log in to') + ' your account first, then you will join with code <b>' + esc(pendingCode) + '</b>.</div>' : '') +
+    '<form class="panel" id="authForm" novalidate>' +
+    '<h2>' + (signup ? 'Create your account' : 'Log in') + '</h2>' +
+    '<div class="field"><label for="u">Username</label><input class="input" id="u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jas"></div>' +
+    '<div class="field"><label for="p">Password</label><input class="input" id="p" type="password" autocomplete="' + (signup ? 'new-password' : 'current-password') + '" placeholder="At least 6 characters"></div>' +
+    '<div class="err" id="authErr" role="alert"></div>' +
+    '<button class="btn teal" id="authBtn" type="submit">' + (signup ? 'Create account' : 'Log in') + '</button>' +
+    '<button class="linkbtn" type="button" id="authSwitch">' + (signup ? 'I already have an account' : 'New here? Create an account') + '</button>' +
+    '</form>' +
+    (apiUrl() ? '<p class="small" style="text-align:center;margin:0">Your login is kept in your family\'s private Google Sheet. <a href="privacy.html">Privacy</a></p>'
+      : '<div class="note"><b>Demo mode:</b> accounts and tasks are saved only on this phone until the family Google Sheet is connected. <a href="privacy.html">Privacy</a></div>') +
+    '</div>';
+}
+function bindAuth() {
+  $('#authSwitch').onclick = function () { S.authMode = S.authMode === 'signup' ? 'login' : 'signup'; render(); };
+  $('#authForm').onsubmit = function (e) {
+    e.preventDefault();
+    var btn = $('#authBtn'); btn.disabled = true; $('#authErr').textContent = '';
+    api(S.authMode === 'signup' ? 'signup' : 'login', { username: $('#u').value, password: $('#p').value, token: '' }).then(function (r) {
+      btn.disabled = false;
+      if (!r.ok) { $('#authErr').textContent = errText(r.error); return; }
+      S.token = r.token; ls('ft_token', r.token);
+      S.username = r.user.username;
+      if (r.group) { sync(true); } else { S.data = null; render(); }
+    });
+  };
+}
+
+function setupView() {
+  return '<div class="screen plain"><div class="header"><div class="blob" style="right:-60px;top:-70px;width:200px;height:200px"></div>' +
+    '<div class="row between" style="position:relative"><div class="col"><span class="hello">Welcome!</span><h1>Set up your family</h1></div>' +
+    '<button class="iconbtn" id="logoutTop" aria-label="Log out">' + ICON.x + '</button></div>' +
+    '<p style="margin:0;color:#D4F0F2;font-size:14px;position:relative">Join your family with an invite code, or start a new private group.</p></div>' +
+    '<div class="pad stack" style="margin-top:20px">' +
+    '<form class="panel" id="joinForm" novalidate><h2>Join with invite code</h2>' +
+    '<div class="field"><label for="code">Invite code</label><input class="input code" id="code" placeholder="FAM-8K2Q" autocapitalize="characters" value="' + esc(pendingCode) + '"></div>' +
+    '<div class="field"><label for="nick1">Your nickname in the family</label><input class="input" id="nick1" maxlength="20" placeholder="e.g. Kuya Jas, Mama, Bunso"></div>' +
+    '<div class="err" id="joinErr" role="alert"></div><button class="btn" type="submit">Join family</button></form>' +
+    '<div class="divider">or</div>' +
+    '<form class="panel" id="createForm" novalidate><h2>Create a new family group</h2>' +
+    '<div class="field"><label for="gname">Family name</label><input class="input" id="gname" maxlength="40" placeholder="e.g. Espinoza Family"></div>' +
+    '<div class="field"><label for="nick2">Your nickname</label><input class="input" id="nick2" maxlength="20" placeholder="e.g. Kuya Jas"></div>' +
+    '<div class="err" id="createErr" role="alert"></div><button class="btn teal" type="submit">Create group and get invite code</button></form>' +
+    '</div></div>';
+}
+function bindSetup() {
+  $('#logoutTop').onclick = logout;
+  $('#joinForm').onsubmit = function (e) {
+    e.preventDefault();
+    api('joinGroup', { code: $('#code').value, nickname: $('#nick1').value }).then(function (r) {
+      if (!r.ok) { $('#joinErr').textContent = errText(r.error); return; }
+      pendingCode = ''; ls('ft_pendingCode', null); toast('Welcome to ' + r.group.name + '!'); sync(true);
+    });
+  };
+  $('#createForm').onsubmit = function (e) {
+    e.preventDefault();
+    api('createGroup', { name: $('#gname').value, nickname: $('#nick2').value }).then(function (r) {
+      if (!r.ok) { $('#createErr').textContent = errText(r.error); return; }
+      S.view = 'family'; toast('Family created! Share your invite code.'); sync(true);
+    });
+  };
+}
+
+function headerBlobs() { return '<div class="blob" style="right:-60px;top:-70px;width:200px;height:200px"></div><div class="blob" style="right:30px;top:70px;width:90px;height:90px;background:rgba(255,255,255,.06)"></div>'; }
+
+function todayView() {
+  var d = S.date, me = S.data.me, all = tasksOn(d);
+  var list = S.tab === 'mine' ? all.filter(function (t) { return t.assignee === me.id; }) : all;
+  var mine = all.filter(function (t) { return t.assignee === me.id; });
+  var base = S.tab === 'mine' ? mine : all;
+  var doneN = base.filter(function (t) { return isDone(t, d); }).length, pct = base.length ? Math.round(doneN / base.length * 100) : 0;
+  var hour = new Date().getHours(), greet = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
+  var mem = members();
+  var av = mem.slice(0, 6).map(function (m, i) { return '<div class="av" style="background:' + COLORS[i % COLORS.length] + '" title="' + esc(m.nickname) + '">' + esc(initials(m.nickname)) + '</div>'; }).join('');
+  // week strip (Sun–Sat containing selected day)
+  var sel = parseYmd(d), start = addDays(d, -sel.getDay()), week = '', t0 = todayStr();
+  for (var i = 0; i < 7; i++) {
+    var day = addDays(start, i), has = tasksOn(day).length > 0;
+    week += '<button class="day' + (day === d ? ' on' : '') + (day === t0 ? ' today' : '') + '" data-day="' + day + '" aria-label="' + WD[i] + ' ' + parseYmd(day).getDate() + (has ? ', has tasks' : '') + '" aria-pressed="' + (day === d) + '"><span>' + WD[i] + '</span><b>' + parseYmd(day).getDate() + '</b>' + (has ? '<i></i>' : '') + '</button>';
+  }
+  var cards = list.map(function (t) {
+    var done = isDone(t, d), mineT = t.assignee === me.id;
+    var idx = Math.max(0, mem.findIndex(function (m) { return m.userId === t.assignee; }));
+    var from = mineT ? (t.createdBy === me.id ? 'My task' : 'From ' + nickOf(t.createdBy)) : 'For ' + nickOf(t.assignee) + (t.createdBy === me.id ? ' · from me' : '');
+    return '<div class="card ' + TONES[idx % TONES.length] + (done ? ' done' : '') + '">' +
+      '<button class="body" data-edit="' + t.id + '" aria-label="Edit ' + esc(t.title) + '"><span class="meta">' + ICON.clock + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + '</span>' +
+      '<span class="title">' + esc(t.title) + '</span><span class="meta">' + esc(from) + '</span></button>' +
+      '<div class="side"><button class="check" data-toggle="' + t.id + '" role="checkbox" aria-checked="' + done + '" aria-label="Mark ' + esc(t.title) + ' done"><span>' + (done ? ICON.tick : '') + '</span></button>' +
+      '<div class="av" style="background:' + colorOf(t.assignee) + '" title="' + esc(nickOf(t.assignee)) + '">' + esc(initials(nickOf(t.assignee))) + '</div></div></div>';
+  }).join('');
+  if (!list.length) cards = '<div class="empty"><b style="color:var(--ink)">Nothing here yet</b><br>Tap the + button to add a goal, a reminder or a task for someone.</div>';
+  var notifAsk = needNotifyPrompt() ? '<div class="note row" style="margin-top:14px"><span style="flex:1">Turn on notifications so you know when a task is given to you.</span><button class="btn sun" style="width:auto;height:44px;font-size:14px" id="notifOn">Turn on</button></div>' : '';
+  var label = d === t0 ? 'Today' : d === addDays(t0, 1) ? 'Tomorrow' : d === addDays(t0, -1) ? 'Yesterday' : WD[sel.getDay()] + ', ' + MONTHS[sel.getMonth()].slice(0, 3) + ' ' + sel.getDate();
+  return '<div class="screen"><div class="header">' + headerBlobs() +
+    '<div class="row between" style="position:relative"><div class="col"><span class="hello">' + greet + '</span><h1>' + esc(me.nickname) + '</h1></div>' +
+    '<button class="iconbtn" id="bellBtn" aria-label="Notifications' + (S.unread ? ', ' + S.unread + ' new' : '') + '">' + ICON.bell + (S.unread ? '<span class="dot"></span>' : '') + '</button></div>' +
+    '<div class="col" style="gap:10px;position:relative"><span class="hello" style="font-weight:600">' + esc(S.data.group.name) + ' · ' + mem.length + ' member' + (mem.length === 1 ? '' : 's') + '</span>' +
+    '<div class="avatars">' + av + '<button class="av add" id="inviteBtn" aria-label="Invite family">' + ICON.plus.replace('currentColor', '#0F7C85') + '</button></div></div>' +
+    '<div class="progress"><div class="ring" style="background:conic-gradient(#0F7C85 ' + pct + '%, #D7EEF0 0)"><div>' + pct + '%</div></div>' +
+    '<div class="col"><span style="font-weight:600">' + doneN + ' of ' + base.length + ' tasks done</span><span class="small">' + (base.length && doneN === base.length ? 'All done, great job!' : label + (S.tab === 'mine' ? ' · my tasks' : ' · whole family')) + '</span></div></div></div>' +
+    '<div class="pad">' + notifAsk +
+    '<div class="monthrow"><b>' + label + ' · ' + MONTHS[sel.getMonth()] + ' ' + sel.getFullYear() + '</b><div class="row" style="gap:6px">' +
+    '<button class="navbtn" id="wkPrev" aria-label="Previous week">' + ICON.prev + '</button><button class="navbtn" id="wkNext" aria-label="Next week">' + ICON.next + '</button></div></div>' +
+    '<div class="week">' + week + '</div>' +
+    '<div class="tabs" role="tablist"><button class="tab' + (S.tab === 'mine' ? ' on' : '') + '" data-tab="mine" role="tab" aria-selected="' + (S.tab === 'mine') + '">My tasks</button>' +
+    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Whole family</button></div>' +
+    '<div class="stack">' + cards + '</div></div></div>';
+}
+
+function planView() {
+  var me = S.data.me, t0 = todayStr(), out = '';
+  for (var i = 0; i < 14; i++) {
+    var d = addDays(t0, i), dt = parseYmd(d), list = tasksOn(d);
+    if (S.tab === 'mine') list = list.filter(function (t) { return t.assignee === me.id; });
+    if (!list.length) continue;
+    var dn = list.filter(function (t) { return isDone(t, d); }).length;
+    out += '<button class="member" data-open="' + d + '" style="border:none;text-align:left;width:100%;font:inherit;color:inherit">' +
+      '<span class="col" style="width:56px;height:56px;border-radius:16px;background:' + (i === 0 ? 'var(--navy);color:#fff' : 'var(--teal-l)') + ';align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px">' + WD[dt.getDay()] + '</span><b style="font-size:18px">' + dt.getDate() + '</b></span>' +
+      '<span class="col" style="flex:1;min-width:0;gap:2px"><span style="font-weight:600">' + (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : MONTHS[dt.getMonth()] + ' ' + dt.getDate()) + '</span>' +
+      '<span class="small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + list.map(function (t) { return esc(t.title); }).join(' · ') + '</span></span>' +
+      '<span style="font-size:13px;font-weight:600">' + dn + '/' + list.length + '</span></button>';
+  }
+  if (!out) out = '<div class="empty"><b style="color:var(--ink)">No tasks in the next 2 weeks</b><br>Tap + to plan something.</div>';
+  return '<div class="screen"><div class="header">' + headerBlobs() +
+    '<div class="col" style="position:relative"><span class="hello">Next 2 weeks</span><h1>Plan</h1></div></div>' +
+    '<div class="pad"><div class="tabs" role="tablist"><button class="tab' + (S.tab === 'mine' ? ' on' : '') + '" data-tab="mine" role="tab" aria-selected="' + (S.tab === 'mine') + '">My tasks</button>' +
+    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Whole family</button></div>' +
+    '<div class="stack">' + out + '</div></div></div>';
+}
+
+function navView() {
+  function b(v, ic, label) { return '<button data-view="' + v + '" class="' + (S.view === v ? 'on' : '') + '"' + (S.view === v ? ' aria-current="page"' : '') + '>' + ic + label + '</button>'; }
+  return '<a class="fab" href="#" id="fab" aria-label="Add task">' + ICON.plus.replace('currentColor', '#fff') + '</a>' +
+    '<nav class="nav">' + b('today', ICON.home, 'Home') + b('plan', ICON.cal, 'Plan') + '<div class="gap"></div>' + b('family', ICON.family, 'Family') + b('me', ICON.me, 'Me') + '</nav>';
+}
+
+function addView() {
+  var e = S.edit, me = S.data.me;
+  var pick = members().map(function (m, i) {
+    return '<button type="button" class="pick' + (e.assignee === m.userId ? ' on' : '') + '" data-who="' + m.userId + '" aria-pressed="' + (e.assignee === m.userId) + '"><span class="av" style="background:' + COLORS[i % COLORS.length] + '">' + esc(initials(m.nickname)) + '</span><span>' + esc(m.userId === me.id ? 'Me' : m.nickname) + '</span></button>';
+  }).join('');
+  var seg = ['once', 'daily', 'weekdays', 'weekly'].map(function (r) { return '<button type="button" data-rep="' + r + '" class="' + (e.repeat === r ? 'on' : '') + '" aria-pressed="' + (e.repeat === r) + '">' + REPEAT_LABEL[r] + '</button>'; }).join('');
+  var who = e.assignee === me.id ? 'me' : nickOf(e.assignee);
+  return '<div class="screen plain"><div class="header" style="padding-bottom:64px;flex-direction:row;align-items:center;gap:14px">' +
+    '<button class="iconbtn" id="backBtn" aria-label="Back">' + ICON.back + '</button><h1 style="font-size:20px;font-weight:600">' + (e.id ? 'Edit task' : 'New task') + '</h1></div>' +
+    '<form class="panel overlap" id="taskForm" novalidate>' +
+    '<div class="field"><label for="tt">What needs to be done?</label><input class="input" id="tt" maxlength="80" placeholder="e.g. Buy rice and eggs" value="' + esc(e.title) + '"></div>' +
+    '<div class="field"><span class="lbl">Assign to</span><div class="chips">' + pick + '</div></div>' +
+    '<div class="grid2"><div class="field"><label for="dd">Date</label><input class="input" id="dd" type="date" value="' + e.date + '"></div>' +
+    '<div class="field"><label for="tm">Time</label><input class="input" id="tm" type="time" value="' + esc(e.time) + '"></div></div>' +
+    '<div class="field"><span class="lbl">Repeat</span><div class="seg">' + seg + '</div></div>' +
+    '<div class="notifyrow"><div class="bell">' + ICON.bell.replace('currentColor', '#14213D') + '</div><div class="col" style="flex:1"><span style="font-weight:600;font-size:14px">Notify ' + (e.assignee === me.id ? 'me' : 'their phone') + '</span><span class="small">' + (e.assignee === me.id ? 'Reminder at the set time' : 'When assigned, and a reminder at the set time') + '</span></div>' +
+    '<button type="button" class="switch" role="switch" id="notifySw" aria-checked="' + e.notify + '" aria-label="Notify"><span></span></button></div>' +
+    '<div class="err" id="taskErr" role="alert"></div>' +
+    '<button class="btn" type="submit" id="saveBtn">' + (e.id ? 'Save changes' : (e.assignee === me.id ? 'Add to my tasks' : 'Assign to ' + esc(who))) + '</button>' +
+    (e.id ? '<button class="btn danger" type="button" id="delBtn">Delete task</button>' : '') +
+    '</form></div>';
+}
+
+function familyView() {
+  var g = S.data.group, me = S.data.me, d = todayStr(), admin = me.role === 'admin';
+  var rows = members().map(function (m, i) {
+    var ts = tasksOn(d).filter(function (t) { return t.assignee === m.userId; }), dn = ts.filter(function (t) { return isDone(t, d); }).length;
+    return '<div class="member"><span class="av" style="background:' + COLORS[i % COLORS.length] + '">' + esc(initials(m.nickname)) + '</span>' +
+      '<span class="col" style="flex:1;min-width:0"><span style="font-weight:600">' + esc(m.nickname) + '</span><span class="small">' + (m.userId === me.id ? 'You · ' : '') + (m.role === 'admin' ? 'Admin' : 'Member') + '</span></span>' +
+      '<span class="col" style="align-items:flex-end;gap:4px"><span style="font-size:13px;font-weight:600">' + dn + ' / ' + ts.length + '</span><span class="bar"><i style="width:' + (ts.length ? Math.round(dn / ts.length * 100) : 0) + '%"></i></span></span>' +
+      (admin && m.userId !== me.id ? '<button class="xbtn" data-remove="' + m.userId + '" aria-label="Remove ' + esc(m.nickname) + '">' + ICON.x + '</button>' : '') + '</div>';
+  }).join('');
+  return '<div class="screen"><div class="header">' + headerBlobs() +
+    '<div class="col" style="position:relative"><h1 style="font-size:22px">' + esc(g.name) + '</h1><span class="hello">Private group · invite only</span></div>' +
+    '<div class="invite" style="position:relative"><span style="font-size:13px;color:#C9D2F0">Invite code. Share it only with family.</span>' +
+    '<span class="big">' + esc(g.code) + '</span>' +
+    '<div class="grid2" style="gap:10px"><button class="btn sun" id="copyCode">' + ICON.copy + 'Copy</button><button class="btn line" id="shareCode">' + ICON.share + 'Share</button></div>' +
+    (admin ? '<button class="linkbtn" id="newCode" style="color:#C9D2F0;align-self:flex-start;padding-left:0">Make a new code (old one stops working)</button>' : '') + '</div></div>' +
+    '<div class="pad stack" style="margin-top:20px"><div class="row between"><h2>Members</h2><span class="small">Done today</span></div>' + rows +
+    '<button class="btn ghost" id="editNick">Edit my nickname</button></div></div>';
+}
+
+function meView() {
+  var me = S.data.me, perm = notifState();
+  var canInstall = !!deferredPrompt, ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var standalone = window.matchMedia && matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  var install = NATIVE || standalone ? '' :
+    (canInstall ? '<button id="installBtn"><span class="grow">Add to Home Screen</span>' + ICON.next + '</button>' :
+      ios ? '<button id="iosHelp"><span class="grow">Add to Home Screen (iPhone)</span>' + ICON.next + '</button>' : '') +
+    (!ios ? '<a href="' + APK_URL + '"><span class="grow">Download Android app (APK)</span>' + ICON.next + '</a>' : '');
+  var idx = Math.max(0, members().findIndex(function (m) { return m.userId === me.id; }));
+  return '<div class="screen"><div class="header">' + headerBlobs() +
+    '<div class="row" style="position:relative"><div class="av" style="width:64px;height:64px;font-size:20px;background:' + COLORS[idx % COLORS.length] + ';border:3px solid #fff">' + esc(initials(me.nickname)) + '</div>' +
+    '<div class="col"><h1>' + esc(me.nickname) + '</h1><span class="hello">@' + esc(me.username) + ' · ' + (me.role === 'admin' ? 'Admin' : 'Member') + '</span></div></div></div>' +
+    '<div class="pad stack" style="margin-top:20px">' +
+    '<div class="list"><button id="editNick"><span class="grow">Edit nickname</span>' + ICON.next + '</button>' +
+    '<button id="notifBtn"><span class="grow">Notifications</span><span class="small">' + (perm === 'granted' ? 'On' : perm === 'denied' ? 'Blocked in settings' : perm === 'unsupported' ? 'Not supported here' : 'Off · tap to turn on') + '</span></button>' +
+    '<button id="testNotif"><span class="grow">Send a test notification</span>' + ICON.next + '</button>' + install + '</div>' +
+    (ios && !standalone && !NATIVE ? '<div class="note">On iPhone, notifications only work after you add the app to your Home Screen (iOS 16.4 or newer).</div>' : '') +
+    (!apiUrl() ? '<div class="note"><b>Demo mode:</b> your family data is only saved on this phone. Once the Google Sheet is connected, everyone shares the same list.</div>' : '') +
+    '<div class="list"><a href="privacy.html"><span class="grow">Privacy policy</span>' + ICON.next + '</a>' +
+    '<button id="leaveBtn"><span class="grow">Leave family group</span></button>' +
+    '<button id="logoutBtn"><span class="grow">Log out</span></button>' +
+    '<button id="deleteAcc" style="color:var(--danger)"><span class="grow">Delete my account</span></button></div>' +
+    '<p class="small" style="text-align:center">Family Tasks · free and private</p></div></div>';
+}
+
+// ---------- Events ----------
+function go(v) { S.view = v; render(); window.scrollTo(0, 0); }
+function bindMain() {
+  document.querySelectorAll('[data-view]').forEach(function (b) {
+    b.onclick = function () { var v = b.getAttribute('data-view'); if (v === 'today') S.date = todayStr(); go(v); };
+  });
+  var fab = $('#fab'); if (fab) fab.onclick = function (e) { e.preventDefault(); openEdit(null); };
+  var bind = function (sel, fn) { var el = $(sel); if (el) el.onclick = fn; };
+  // Today
+  document.querySelectorAll('[data-day]').forEach(function (b) { b.onclick = function () { S.date = b.getAttribute('data-day'); render(); }; });
+  document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { S.tab = b.getAttribute('data-tab'); ls('ft_tab', S.tab); render(); }; });
+  document.querySelectorAll('[data-toggle]').forEach(function (b) { b.onclick = function () { toggleDone(b.getAttribute('data-toggle')); }; });
+  document.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { S.date = b.getAttribute('data-open'); go('today'); }; });
+  document.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { openEdit(b.getAttribute('data-edit')); }; });
+  bind('#wkPrev', function () { S.date = addDays(S.date, -7); render(); });
+  bind('#wkNext', function () { S.date = addDays(S.date, 7); render(); });
+  bind('#inviteBtn', function () { go('family'); });
+  bind('#bellBtn', showInbox);
+  bind('#notifOn', askNotify);
+  // Add / edit
+  if (S.view === 'add') bindAdd();
+  // Family
+  bind('#copyCode', function () { copyText(S.data.group.code); });
+  bind('#shareCode', shareInvite);
+  bind('#newCode', function () { confirmSheet('Make a new invite code?', 'The old code will stop working. People already in the family stay.', 'Make new code', function () { api('newCode').then(function (r) { if (!r.ok) return toast(errText(r.error)); toast('New code: ' + r.code); sync(true); }); }); });
+  document.querySelectorAll('[data-remove]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-remove'); confirmSheet('Remove ' + nickOf(id) + '?', 'They will leave the family group. They can join again only with the invite code.', 'Remove', function () { api('removeMember', { userId: id }).then(function (r) { if (!r.ok) return toast(errText(r.error)); sync(true); }); }); }; });
+  bind('#editNick', editNickname);
+  // Me
+  bind('#notifBtn', askNotify);
+  bind('#testNotif', function () { askNotify().then(function () { notify('Family Tasks', 'Notifications are working!', 'test'); }); });
+  bind('#installBtn', function () { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; } });
+  bind('#iosHelp', function () { infoSheet('Add to Home Screen', 'In Safari, tap the Share button (square with an arrow), then choose “Add to Home Screen”. Open Family Tasks from your Home Screen to get notifications.'); });
+  bind('#logoutBtn', logout);
+  bind('#leaveBtn', function () { confirmSheet('Leave ' + S.data.group.name + '?', 'Your tasks stay with the family. You can join again with the invite code.', 'Leave group', function () { api('leaveGroup').then(function (r) { if (!r.ok) return toast(errText(r.error)); S.data = null; ls('ft_cache', null); S.view = 'today'; render(); }); }); });
+  bind('#deleteAcc', deleteAccount);
+}
+
+function openEdit(id) {
+  var t = null; ((S.data && S.data.tasks) || []).forEach(function (x) { if (x.id === id) t = x; });
+  S.edit = t ? { id: t.id, title: t.title, assignee: t.assignee, date: t.date, time: t.time, repeat: t.repeat, notify: t.notify }
+    : { id: '', title: '', assignee: S.data.me.id, date: S.date < todayStr() ? todayStr() : S.date, time: '', repeat: 'once', notify: true };
+  S.back = S.view; go('add');
+}
+function bindAdd() {
+  var e = S.edit;
+  function keep() { e.title = $('#tt').value; e.date = $('#dd').value || e.date; e.time = $('#tm').value; }
+  $('#backBtn').onclick = function () { go(S.back === 'add' ? 'today' : S.back || 'today'); };
+  document.querySelectorAll('[data-who]').forEach(function (b) { b.onclick = function () { keep(); e.assignee = b.getAttribute('data-who'); render(); }; });
+  document.querySelectorAll('[data-rep]').forEach(function (b) { b.onclick = function () { keep(); e.repeat = b.getAttribute('data-rep'); render(); }; });
+  $('#notifySw').onclick = function () { keep(); e.notify = !e.notify; render(); };
+  var del = $('#delBtn');
+  if (del) del.onclick = function () { confirmSheet('Delete this task?', e.title, 'Delete', function () { api('deleteTask', { taskId: e.id }).then(function (r) { if (!r.ok) return toast(errText(r.error)); S.data.tasks = S.data.tasks.filter(function (t) { return t.id !== e.id; }); go('today'); sync(); }); }); };
+  $('#taskForm').onsubmit = function (ev) {
+    ev.preventDefault(); keep();
+    if (!e.title.trim()) { $('#taskErr').textContent = errText('empty_title'); return; }
+    var btn = $('#saveBtn'); btn.disabled = true;
+    api('saveTask', { task: e }).then(function (r) {
+      btn.disabled = false;
+      if (!r.ok) { $('#taskErr').textContent = errText(r.error); return; }
+      var list = S.data.tasks.filter(function (t) { return t.id !== r.task.id; }); list.push(r.task); S.data.tasks = list;
+      toast(e.id ? 'Saved' : (e.assignee === S.data.me.id ? 'Added to your tasks' : 'Sent to ' + nickOf(e.assignee)));
+      S.date = e.date; go('today'); sync(); scheduleNative();
+    });
+  };
+}
+function toggleDone(id) {
+  var d = S.date, t = null; S.data.tasks.forEach(function (x) { if (x.id === id) t = x; });
+  if (!t) return;
+  var i = t.done.indexOf(d); if (i >= 0) t.done.splice(i, 1); else t.done.push(d);
+  render();
+  api('toggleDone', { taskId: id, date: d }).then(function (r) {
+    if (!r.ok) { toast(errText(r.error)); sync(true); return; }
+    t.done = r.done; saveCache(); scheduleNative();
+  });
+}
+
+// ---------- Sheets / dialogs ----------
+function sheet(html, bindFn) {
+  var host = $('#sheet');
+  host.innerHTML = '<div class="sheetbg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true">' + html + '</div></div>';
+  $('#sheetBg').onclick = function (e) { if (e.target.id === 'sheetBg') closeSheet(); };
+  var first = host.querySelector('input,button'); if (first) setTimeout(function () { first.focus(); }, 50);
+  if (bindFn) bindFn(host);
+}
+function closeSheet() { $('#sheet').innerHTML = ''; }
+function confirmSheet(title, text, okLabel, fn) {
+  sheet('<h2>' + esc(title) + '</h2><p class="small" style="margin:0;font-size:14px">' + esc(text) + '</p><button class="btn" id="sOk">' + esc(okLabel) + '</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sOk').onclick = function () { closeSheet(); fn(); }; $('#sNo').onclick = closeSheet;
+  });
+}
+function infoSheet(title, text) { sheet('<h2>' + esc(title) + '</h2><p style="margin:0">' + esc(text) + '</p><button class="btn" id="sOk">OK</button>', function () { $('#sOk').onclick = closeSheet; }); }
+function editNickname() {
+  sheet('<h2>Your nickname</h2><div class="field"><label for="nn">Nickname your family sees</label><input class="input" id="nn" maxlength="20" value="' + esc(S.data.me.nickname) + '"></div><div class="err" id="nErr"></div><button class="btn teal" id="sOk">Save</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () { api('setNickname', { nickname: $('#nn').value }).then(function (r) { if (!r.ok) { $('#nErr').textContent = errText(r.error); return; } closeSheet(); sync(true); }); };
+  });
+}
+function deleteAccount() {
+  sheet('<h2>Delete my account</h2><p class="small" style="margin:0;font-size:14px">This removes your login and takes you out of the family group. Type your password to confirm.</p><div class="field"><label for="dp">Password</label><input class="input" id="dp" type="password" autocomplete="current-password"></div><div class="err" id="dErr"></div><button class="btn danger" id="sOk">Delete my account</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () { api('deleteAccount', { password: $('#dp').value }).then(function (r) { if (!r.ok) { $('#dErr').textContent = errText(r.error); return; } closeSheet(); clearLocal(); render(); toast('Your account was deleted.'); }); };
+  });
+}
+function showInbox() {
+  var items = []; try { items = JSON.parse(ls('ft_inbox') || '[]'); } catch (e) {}
+  S.unread = 0; render();
+  sheet('<h2>Notifications</h2>' + (items.length ? '<div class="list" style="border:1px solid #EEF3F4">' + items.slice(0, 20).map(function (n) {
+    var d = new Date(n.created); return '<div class="col" style="align-items:flex-start;gap:2px"><span style="font-weight:500">' + esc(n.text) + '</span><span class="small">' + d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</span></div>';
+  }).join('') + '</div>' : '<p class="small" style="margin:0">No notifications yet.</p>') + '<button class="btn ghost" id="sNo">Close</button>', function () { $('#sNo').onclick = closeSheet; });
+}
+var toastTimer;
+function toast(msg) {
+  var t = $('#toast'); t.innerHTML = '<div class="toast" role="status"><div class="bell" style="width:32px;height:32px;border-radius:10px">' + ICON.bell.replace('currentColor', '#14213D').replace(/width="22" height="22"/, 'width="18" height="18"') + '</div><span>' + esc(msg) + '</span></div>';
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.innerHTML = ''; }, 3500);
+}
+function copyText(s) {
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(s) : Promise.reject()).then(function () { toast('Copied ' + s); })
+    .catch(function () { infoSheet('Invite code', s); });
+}
+function shareInvite() {
+  var g = S.data.group, text = 'Join our family "' + g.name + '" on Family Tasks. Invite code: ' + g.code;
+  var url = APP_URL + '#join=' + g.code;
+  if (NATIVE && PL.Share) return PL.Share.share({ title: 'Family Tasks invite', text: text, url: url }).catch(function () {});
+  if (navigator.share) return navigator.share({ title: 'Family Tasks invite', text: text, url: url }).catch(function () {});
+  copyText(text + ' ' + url);
+}
+
+// ---------- Sync ----------
+function saveCache() { ls('ft_cache', JSON.stringify(S.data)); }
+var syncing = false;
+function sync(rerender) {
+  if (!S.token || syncing) return Promise.resolve();
+  syncing = true;
+  return api('sync', { since: S.lastEvent }).then(function (r) {
+    syncing = false;
+    if (!r.ok) {
+      if (r.error === 'not_logged_in') { clearLocal(); render(); }
+      else if (r.error === 'no_group') { S.data = null; ls('ft_cache', null); render(); }
+      else if (rerender) render();
+      return;
+    }
+    S.data = r; saveCache();
+    if (r.events.length) {
+      var inbox = []; try { inbox = JSON.parse(ls('ft_inbox') || '[]'); } catch (e) {}
+      var fresh = S.lastEvent > 0;
+      r.events.sort(function (a, b) { return a.created - b.created; }).forEach(function (ev) {
+        inbox.unshift(ev); S.lastEvent = Math.max(S.lastEvent, ev.created);
+        if (fresh) { notify('Family Tasks', ev.text, ev.id); toast(ev.text); S.unread++; }
+      });
+      if (!fresh) S.lastEvent = Math.max(S.lastEvent, r.now - 1);
+      ls('ft_inbox', JSON.stringify(inbox.slice(0, 50))); ls('ft_lastEvent', String(S.lastEvent));
+    } else if (!S.lastEvent) { S.lastEvent = r.now - 1; ls('ft_lastEvent', String(S.lastEvent)); }
+    if (rerender || S.view !== 'add') { if (!$('#sheet').innerHTML && !(document.activeElement && document.activeElement.tagName === 'INPUT')) render(); }
+    scheduleNative();
+  });
+}
+function logout() { api('logout'); clearLocal(); render(); }
+function clearLocal() {
+  ['ft_token', 'ft_cache', 'ft_inbox', 'ft_lastEvent', 'ft_reminded'].forEach(function (k) { ls(k, null); });
+  S.token = null; S.data = null; S.view = 'today'; S.lastEvent = 0; S.unread = 0; S.authMode = 'login';
+  if (NATIVE && PL.LocalNotifications) PL.LocalNotifications.getPending().then(function (p) { if (p.notifications.length) PL.LocalNotifications.cancel({ notifications: p.notifications }); }).catch(function () {});
+}
+
+// ---------- Notifications ----------
+var swReg = null;
+function notifState() {
+  if (NATIVE) return ls('ft_nativeNotif') || 'default';
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+function needNotifyPrompt() { var s = notifState(); return s === 'default' && !ls('ft_notifAsked'); }
+function askNotify() {
+  ls('ft_notifAsked', '1');
+  if (NATIVE && PL.LocalNotifications) {
+    return PL.LocalNotifications.requestPermissions().then(function (r) { ls('ft_nativeNotif', r.display === 'granted' ? 'granted' : 'denied'); scheduleNative(); render(); });
+  }
+  if (!('Notification' in window)) { infoSheet('Notifications', 'This browser cannot show notifications. On iPhone, add the app to your Home Screen first. On Android, use Chrome or the Android app.'); return Promise.resolve(); }
+  return Promise.resolve(Notification.requestPermission()).then(function () { render(); });
+}
+function notify(title, body, tag) {
+  if (NATIVE && PL.LocalNotifications) {
+    PL.LocalNotifications.schedule({ notifications: [{ id: Math.floor(Math.random() * 1e9), title: title, body: body }] }).catch(function () {});
+    return;
+  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  var opt = { body: body, tag: tag || undefined, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png' };
+  if (swReg && swReg.showNotification) swReg.showNotification(title, opt).catch(function () {});
+  else try { new Notification(title, opt); } catch (e) {}
+}
+// While the app is open (website): remind me when one of my tasks is due.
+function checkReminders() {
+  if (!S.data || !S.data.me || NATIVE) return;
+  var now = new Date(), d = ymd(now), hm = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+  var done = {}; try { done = JSON.parse(ls('ft_reminded') || '{}'); } catch (e) {}
+  tasksOn(d).forEach(function (t) {
+    if (t.assignee !== S.data.me.id || !t.time || isDone(t, d) || !t.notify) return;
+    var key = t.id + d;
+    if (t.time <= hm && !done[key]) {
+      done[key] = 1;
+      var mins = (now.getHours() * 60 + now.getMinutes()) - (+t.time.slice(0, 2) * 60 + +t.time.slice(3));
+      if (mins <= 30) { notify('Reminder: ' + t.title, fmtTime(t.time) + (t.createdBy !== t.assignee ? ' · from ' + nickOf(t.createdBy) : ''), key); toast('Reminder: ' + t.title); }
+    }
+  });
+  ls('ft_reminded', JSON.stringify(done));
+}
+// Android app: schedule my reminders on the phone so they ring even when the app is closed.
+var schedTimer;
+function scheduleNative() {
+  if (!NATIVE || !PL.LocalNotifications || !S.data || !S.data.me || notifState() !== 'granted') return;
+  clearTimeout(schedTimer);
+  schedTimer = setTimeout(function () {
+    var LN = PL.LocalNotifications, list = [], now = Date.now(), me = S.data.me.id;
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(todayStr(), i);
+      tasksOn(d).forEach(function (t, k) {
+        if (t.assignee !== me || !t.time || !t.notify || isDone(t, d)) return;
+        var at = parseYmd(d); at.setHours(+t.time.slice(0, 2), +t.time.slice(3), 0, 0);
+        if (at.getTime() <= now) return;
+        list.push({ id: 100000 + i * 1000 + (list.length % 1000), title: 'Reminder: ' + t.title, body: fmtTime(t.time) + (t.createdBy !== me ? ' · from ' + nickOf(t.createdBy) : ''), schedule: { at: at, allowWhileIdle: true } });
+      });
+    }
+    LN.getPending().then(function (p) {
+      var old = p.notifications.filter(function (n) { return n.id >= 100000; });
+      return old.length ? LN.cancel({ notifications: old }) : null;
+    }).then(function () { if (list.length) return LN.schedule({ notifications: list.slice(0, 60) }); }).catch(function () {});
+  }, 800);
+}
+
+// ---------- Install (Add to Home Screen) ----------
+var deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; if (S.view === 'me') render(); });
+
+// ---------- Owner settings: open the app with #owner ----------
+function ownerSettings() {
+  sheet('<h2>Owner settings</h2><div class="field"><label for="api">Google Apps Script web-app address (/exec)</label><input class="input" id="api" placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(ls('ft_api') || '') + '"></div>' +
+    '<p class="small" style="margin:0">Leave empty to use ' + (API_URL ? 'the built-in address.' : 'demo mode (this phone only).') + '</p><button class="btn teal" id="sOk">Save</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sNo').onclick = function () { closeSheet(); history.replaceState(null, '', location.pathname); };
+    $('#sOk').onclick = function () { var v = $('#api').value.trim(); ls('ft_api', v || null); closeSheet(); history.replaceState(null, '', location.pathname); clearLocal(); render(); toast('Saved. Please log in.'); };
+  });
+}
+
+// ---------- Start ----------
+S.tab = ls('ft_tab') || 'all';
+render();
+if (S.token) sync(true);
+if (location.hash === '#owner') ownerSettings();
+setInterval(function () { if (!document.hidden) sync(); }, 30000);
+setInterval(checkReminders, 20000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) { sync(); checkReminders(); } });
+if (!NATIVE && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/claude|anthropic|usercontent/.test(location.hostname)) {
+  navigator.serviceWorker.register('sw.js').then(function (r) { swReg = r; }).catch(function () {});
+}
+if (NATIVE && PL.App) {
+  PL.App.addListener('backButton', function () {
+    if ($('#sheet').innerHTML) return closeSheet();
+    if (S.view !== 'today') { go(S.view === 'add' ? (S.back || 'today') : 'today'); return; }
+    PL.App.exitApp();
+  });
+  PL.App.addListener('resume', function () { sync(); });
+  if (PL.LocalNotifications) PL.LocalNotifications.checkPermissions().then(function (r) { ls('ft_nativeNotif', r.display === 'granted' ? 'granted' : r.display === 'denied' ? 'denied' : 'default'); }).catch(function () {});
+}
+</script>
+</body>
+</html>
