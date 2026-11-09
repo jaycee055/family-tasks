@@ -322,7 +322,7 @@ var ERRORS = {
   bad_username: 'Username: 3–30 letters or numbers, no spaces.', weak_password: 'Password needs at least 6 characters.',
   username_taken: 'That username is taken. Try another.', wrong_login: 'Wrong username or password.',
   bad_reset_code: 'That code is not right, or it has expired. Check the username and the code.', wrong_old_password: 'Your current password is not right.',
-  cannot_nudge_self: 'This task is yours.', end_before_start: 'The end time must be after the start time.', bad_end_date: 'The "repeat until" date must be on or after the start date.',
+  cannot_nudge_self: 'This task is yours.', use_change_password: 'To change your own password, go to Me → Change password.', end_before_start: 'The end time must be after the start time.', bad_end_date: 'The "repeat until" date must be on or after the start date.',
   too_many_tries: 'Too many tries. Wait 15 minutes and try again.', bad_code: 'That invite code was not found. Check it with the person who invited you.',
   group_full: 'This group is full.', already_in_group: 'You are already in this group.', too_many_groups: 'You can be in up to 10 groups. Leave one first.', not_logged_in: 'Please log in again.',
   admins_only: 'Only the group admin can do that.', empty_title: 'Write what needs to be done.', not_allowed: 'Only the person who made or got this task can delete it.',
@@ -428,6 +428,7 @@ function bindAuth() {
       S.token = r.token; ls('ft_token', r.token);
       S.username = r.user.username;
       if (r.recoveryCode) showRecovery(r.recoveryCode, true);
+      if (r.mustChange) { var tmp = $('#p').value; setTimeout(function () { mustChangePassword(tmp); }, 400); }
       if (r.group) { sync(true); } else { S.data = null; render(); }
     });
   };
@@ -903,7 +904,7 @@ function showRecovery(code, isNew) {
 }
 function forgotPassword(prefill) {
   sheet('<h2>Forgot password?</h2>' +
-    '<p class="small" style="margin:0;font-size:14px">Use the <b>recovery code</b> you saved when you made your account. No code? Ask your group admin to open the members page, tap <b>⋯</b> next to your name, then <b>Reset password</b>. They will get a reset code to give you.</p>' +
+    '<p class="small" style="margin:0;font-size:14px">Use the <b>recovery code</b> you saved when you made your account. No code? Ask your group admin to open the members page and tap <b>⋯</b> next to your name. They can give you a reset code, or a temporary password you can log in with right away. They will get a reset code to give you.</p>' +
     '<div class="field"><label for="fu">Username</label><input class="input" id="fu" autocapitalize="none" spellcheck="false" value="' + esc(prefill || '') + '"></div>' +
     '<div class="field"><label for="fc">Recovery code or reset code</label><input class="input code" id="fc" autocapitalize="characters" placeholder="ABCD-EFGH"></div>' +
     pwInput('fp', 'New password', 'new-password', 'At least 6 characters') + pwInput('fp2', 'Confirm new password', 'new-password', 'Type it again') +
@@ -918,6 +919,21 @@ function forgotPassword(prefill) {
         if (!r.ok) { $('#fErr').textContent = errText(r.error); return; }
         closeSheet(); S.token = r.token; ls('ft_token', r.token); toast('Password changed. Welcome back!');
         if (r.group) sync(true); else { S.data = null; render(); }
+      });
+    };
+  });
+}
+function mustChangePassword(tmp) {
+  sheet('<h2>Choose your own password</h2><p class="small" style="margin:0;font-size:14px">Your admin gave you a temporary password. Make a new one that only you know.</p>' +
+    pwInput('np', 'New password', 'new-password', 'At least 6 characters') + pwInput('np2', 'Confirm new password', 'new-password', 'Type it again') +
+    '<div class="err" id="cErr" role="alert"></div><button class="btn teal" id="sOk">Save my password</button>', function () {
+    $('#sheetBg').onclick = null;
+    $('#sOk').onclick = function () {
+      if ($('#np').value !== $('#np2').value) { $('#cErr').textContent = 'The passwords do not match.'; return; }
+      if ($('#np').value === tmp) { $('#cErr').textContent = 'Please choose a password different from the temporary one.'; return; }
+      api('changePassword', { oldPassword: tmp, password: $('#np').value }).then(function (r) {
+        if (!r.ok) { $('#cErr').textContent = errText(r.error); return; }
+        closeSheet(); toast('Your new password is saved.');
       });
     };
   });
@@ -945,9 +961,23 @@ function newRecovery() {
 function memberMenu(id) {
   var n = nickOf(id);
   sheet('<h2>' + esc(n) + '</h2><div class="list" style="border:1.5px solid var(--line)">' +
-    '<button id="mReset"><span class="grow">Reset password</span><span class="small">If they forgot it</span></button>' +
+    '<button id="mTemp"><span class="grow">Set a temporary password</span><span class="small">Forgot password</span></button>' +
+    '<button id="mReset"><span class="grow">Give a reset code</span><span class="small">They pick the password</span></button>' +
     '<button id="mRemove" style="color:var(--danger)"><span class="grow">Remove from group</span></button></div><button class="btn ghost" id="sNo">Close</button>', function () {
     $('#sNo').onclick = closeSheet;
+    $('#mTemp').onclick = function () {
+      sheet('<h2>Temporary password for ' + esc(n) + '</h2><p class="small" style="margin:0;font-size:14px">Type a temporary password and tell it to ' + esc(n) + '. When they log in with it, the app asks them to choose their own new password. Their old password stops working.</p>' +
+        pwInput('tp', 'Temporary password', 'off', 'At least 6 characters') + '<div class="err" id="tErr" role="alert"></div><button class="btn teal" id="sOk">Set password</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+        $('#sNo').onclick = closeSheet;
+        $('#sOk').onclick = function () {
+          var pw = $('#tp').value;
+          api('adminSetPassword', { userId: id, password: pw }).then(function (r) {
+            if (!r.ok) { $('#tErr').textContent = errText(r.error); return; }
+            sheet('<h2>Done</h2><p style="margin:0">Tell ' + esc(r.nickname) + ' to log in with:</p><div class="statusline">Username: <b>' + esc(r.username) + '</b><br>Temporary password: <b>' + esc(pw) + '</b></div><p class="small" style="margin:0">They will be asked to choose a new password right away. This screen is the only place the temporary password is shown.</p><button class="btn" id="sOk">OK</button>', function () { $('#sOk').onclick = closeSheet; });
+          });
+        };
+      });
+    };
     $('#mReset').onclick = function () {
       api('adminResetCode', { userId: id }).then(function (r) {
         if (!r.ok) return toast(errText(r.error));

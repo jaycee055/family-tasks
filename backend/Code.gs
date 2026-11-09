@@ -97,7 +97,7 @@ function makeCore(db, opts) {
     var username = clean(req.username, 30).toLowerCase();
     var u = find('users', function (x) { return x.username === username; });
     if (!u || opts.hash(u.salt, String(req.password || '')) !== u.hash) return fail('wrong_login');
-    var r = me(u); r.token = session(u); return r;
+    var r = me(u); r.token = session(u); if (String(u.mustChange) === 'true') r.mustChange = true; return r;
   };
   // Forgot password: use your recovery code (given at sign-up) or a reset code from your family admin
   A.resetPassword = function (req) {
@@ -109,7 +109,7 @@ function makeCore(db, opts) {
     var okReset = u.resetHash && Number(u.resetExp) > opts.now() && opts.hash(u.salt, 'reset:' + code) === u.resetHash;
     if (!okRec && !okReset) return fail('bad_reset_code');
     if (String(req.password || '').length < 6) return fail('weak_password');
-    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)), resetHash: '', resetExp: '' });
+    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)), resetHash: '', resetExp: '', mustChange: '' });
     db.remove('sessions', function (s) { return s.userId === u.id; });
     u = find('users', function (x) { return x.id === u.id; });
     var r = me(u); r.token = session(u); return r;
@@ -118,7 +118,7 @@ function makeCore(db, opts) {
     var u = auth(req); if (!u) return fail('not_logged_in');
     if (opts.hash(u.salt, String(req.oldPassword || '')) !== u.hash) return fail('wrong_old_password');
     if (String(req.password || '').length < 6) return fail('weak_password');
-    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)) });
+    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)), mustChange: '' });
     db.remove('sessions', function (s) { return s.userId === u.id && s.token !== String(req.token); });
     return { ok: true };
   };
@@ -138,6 +138,19 @@ function makeCore(db, opts) {
     var code = recCode(6);
     db.update('users', function (x) { return x.id === u.id; }, { resetHash: opts.hash(u.salt, 'reset:' + code), resetExp: String(opts.now() + 86400000) });
     return { ok: true, code: code, username: u.username, nickname: m.nickname };
+  };
+  // Admin sets a temporary password for a member who forgot theirs; they must change it at next login
+  A.adminSetPassword = function (req) {
+    var c = needGroup(req); if (c.err) return c.err;
+    if (c.mem.role !== 'admin') return fail('admins_only');
+    if (req.userId === c.user.id) return fail('use_change_password');
+    var m = find('members', function (x) { return x.groupId === c.mem.groupId && x.userId === req.userId; });
+    if (!m) return fail('not_a_member');
+    if (String(req.password || '').length < 6) return fail('weak_password');
+    var u = find('users', function (x) { return x.id === req.userId; }); if (!u) return fail('not_found');
+    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)), mustChange: 'true', resetHash: '', resetExp: '' });
+    db.remove('sessions', function (s) { return s.userId === u.id; });
+    return { ok: true, username: u.username, nickname: m.nickname };
   };
   A.logout = function (req) { db.remove('sessions', function (s) { return s.token === String(req.token || ''); }); return { ok: true }; };
   A.me = function (req) { var u = auth(req); return u ? me(u) : fail('not_logged_in'); };
@@ -337,7 +350,7 @@ function makeCore(db, opts) {
 }
 
 var TABLES = {
-  users: ['id', 'username', 'salt', 'hash', 'created', 'recHash', 'resetHash', 'resetExp'],
+  users: ['id', 'username', 'salt', 'hash', 'created', 'recHash', 'resetHash', 'resetExp', 'mustChange'],
   sessions: ['token', 'userId', 'expires'],
   groups: ['id', 'name', 'code', 'ownerId', 'created', 'type'],
   members: ['groupId', 'userId', 'nickname', 'role', 'joined'],
