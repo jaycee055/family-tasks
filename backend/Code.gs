@@ -54,7 +54,8 @@ function makeCore(db, opts) {
   function publicTask(t) {
     return { id: t.id, title: t.title, assignee: t.assignee, createdBy: t.createdBy, date: t.date, time: t.time,
       repeat: t.repeat, notify: String(t.notify) === 'true' || t.notify === true, done: parseJson(t.done, []),
-      status: parseJson(t.status, {}), updated: Number(t.updated) };
+      status: parseJson(t.status, {}), endTime: t.endTime || '', endDate: t.endDate || '', cheer: parseJson(t.cheer, { t: 'cat', c: 'random' }),
+      updated: Number(t.updated) };
   }
   function nick(groupId, userId) {
     var m = find('members', function (x) { return x.groupId === groupId && x.userId === userId; });
@@ -231,17 +232,29 @@ function makeCore(db, opts) {
     var assignee = String(t.assignee || c.user.id);
     if (!find('members', function (m) { return m.groupId === gid && m.userId === assignee; })) return fail('not_a_member');
     var notify = t.notify !== false;
+    var endTime = String(t.endTime || ''); if (!validTime(endTime)) return fail('bad_time');
+    if (endTime && !time) { time = endTime; endTime = ''; }
+    if (endTime && endTime <= time) return fail('end_before_start');
+    var endDate = repeat === 'once' ? '' : String(t.endDate || '');
+    if (endDate && (!validDate(endDate) || endDate < t.date)) return fail('bad_end_date');
+    var ch = t.cheer || {}, cheer = { t: 'cat', c: 'random' };
+    if (ch.t === 'none') cheer = { t: 'none' };
+    else if (ch.t === 'custom' && clean(ch.x, 140)) cheer = { t: 'custom', x: clean(ch.x, 140) };
+    else if (ch.t === 'cat' && /^[a-z]{2,12}$/.test(String(ch.c || ''))) cheer = { t: 'cat', c: ch.c };
+    cheer = JSON.stringify(cheer);
     var by = c.mem.nickname, row;
     if (t.id) {
       var old = find('tasks', function (x) { return x.id === t.id && x.groupId === gid; });
       if (!old) return fail('not_found');
-      db.update('tasks', function (x) { return x.id === t.id; }, { title: title, assignee: assignee, date: t.date, time: time, repeat: repeat, notify: String(notify), updated: String(opts.now()) });
+      db.update('tasks', function (x) { return x.id === t.id; }, { title: title, assignee: assignee, date: t.date, time: time, repeat: repeat, notify: String(notify),
+        endTime: endTime, endDate: endDate, cheer: cheer, updated: String(opts.now()) });
       if (notify && assignee !== c.user.id && old.assignee !== assignee) event(gid, assignee, by + ' assigned you: ' + title, t.id);
       else if (notify && assignee !== c.user.id) event(gid, assignee, by + ' updated: ' + title, t.id);
       row = find('tasks', function (x) { return x.id === t.id; });
     } else {
       row = { id: newId(), groupId: gid, title: title, assignee: assignee, createdBy: c.user.id, date: t.date, time: time,
-        repeat: repeat, notify: String(notify), done: '[]', status: '{}', created: String(opts.now()), updated: String(opts.now()) };
+        repeat: repeat, notify: String(notify), done: '[]', status: '{}', created: String(opts.now()), updated: String(opts.now()),
+        endTime: endTime, endDate: endDate, cheer: cheer };
       db.insert('tasks', row);
       if (notify && assignee !== c.user.id) event(gid, assignee, by + ' assigned you: ' + title, row.id);
     }
@@ -328,7 +341,7 @@ var TABLES = {
   sessions: ['token', 'userId', 'expires'],
   groups: ['id', 'name', 'code', 'ownerId', 'created', 'type'],
   members: ['groupId', 'userId', 'nickname', 'role', 'joined'],
-  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated', 'status'],
+  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated', 'status', 'endTime', 'endDate', 'cheer'],
   events: ['id', 'groupId', 'toUser', 'text', 'taskId', 'created']
 };
 // ===== end core =====

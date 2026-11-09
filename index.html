@@ -83,6 +83,13 @@ h2{margin:0;font-size:17px;font-weight:600}
 .opts button{min-height:48px;border:1.5px solid var(--line);background:var(--field);border-radius:14px;font-size:14px;font-weight:500;color:var(--ink)}
 .opts button:hover,.act:hover{border-color:var(--teal)}
 .statusline{background:var(--bg);border-radius:14px;padding:10px 12px;font-size:13px;color:#2E3B4E}
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:60}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:3px;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.2}}
+.bigcheck{width:76px;height:76px;border-radius:99px;background:var(--teal);display:flex;align-items:center;justify-content:center;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(.3);opacity:0}}
+.cheer{margin:0;font-size:18px;font-weight:600;line-height:1.45;color:var(--navy);max-width:380px}
+@media (prefers-reduced-motion:reduce){.bigcheck,.toast{animation:none}}
 .tchips{display:flex;flex-wrap:wrap;gap:8px}
 .tchip{min-height:40px;padding:0 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--field);font-size:13px;font-weight:500;color:#2E3B4E}
 .tchip.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
@@ -115,7 +122,7 @@ h2{margin:0;font-size:17px;font-weight:600}
 .pick.on{background:var(--teal-l);border-color:var(--teal)}
 .pick .av{width:44px;height:44px}
 .seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:var(--bg);border-radius:14px;padding:5px}
-.seg button{height:42px;border:none;border-radius:10px;background:none;font-size:13px;font-weight:500;color:#2E3B4E}
+.seg button{height:42px;border:none;border-radius:10px;background:none;font-size:12.5px;padding:0 2px;font-weight:500;color:#2E3B4E}
 .seg button.on{background:var(--teal);color:#fff;font-weight:600}
 .notifyrow{display:flex;align-items:center;gap:12px;background:var(--field);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px}
 .bell{width:40px;height:40px;border-radius:12px;background:var(--sun);display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -259,7 +266,8 @@ function makeCore(db, opts) {
   function publicTask(t) {
     return { id: t.id, title: t.title, assignee: t.assignee, createdBy: t.createdBy, date: t.date, time: t.time,
       repeat: t.repeat, notify: String(t.notify) === 'true' || t.notify === true, done: parseJson(t.done, []),
-      status: parseJson(t.status, {}), updated: Number(t.updated) };
+      status: parseJson(t.status, {}), endTime: t.endTime || '', endDate: t.endDate || '', cheer: parseJson(t.cheer, { t: 'cat', c: 'random' }),
+      updated: Number(t.updated) };
   }
   function nick(groupId, userId) {
     var m = find('members', function (x) { return x.groupId === groupId && x.userId === userId; });
@@ -436,17 +444,29 @@ function makeCore(db, opts) {
     var assignee = String(t.assignee || c.user.id);
     if (!find('members', function (m) { return m.groupId === gid && m.userId === assignee; })) return fail('not_a_member');
     var notify = t.notify !== false;
+    var endTime = String(t.endTime || ''); if (!validTime(endTime)) return fail('bad_time');
+    if (endTime && !time) { time = endTime; endTime = ''; }
+    if (endTime && endTime <= time) return fail('end_before_start');
+    var endDate = repeat === 'once' ? '' : String(t.endDate || '');
+    if (endDate && (!validDate(endDate) || endDate < t.date)) return fail('bad_end_date');
+    var ch = t.cheer || {}, cheer = { t: 'cat', c: 'random' };
+    if (ch.t === 'none') cheer = { t: 'none' };
+    else if (ch.t === 'custom' && clean(ch.x, 140)) cheer = { t: 'custom', x: clean(ch.x, 140) };
+    else if (ch.t === 'cat' && /^[a-z]{2,12}$/.test(String(ch.c || ''))) cheer = { t: 'cat', c: ch.c };
+    cheer = JSON.stringify(cheer);
     var by = c.mem.nickname, row;
     if (t.id) {
       var old = find('tasks', function (x) { return x.id === t.id && x.groupId === gid; });
       if (!old) return fail('not_found');
-      db.update('tasks', function (x) { return x.id === t.id; }, { title: title, assignee: assignee, date: t.date, time: time, repeat: repeat, notify: String(notify), updated: String(opts.now()) });
+      db.update('tasks', function (x) { return x.id === t.id; }, { title: title, assignee: assignee, date: t.date, time: time, repeat: repeat, notify: String(notify),
+        endTime: endTime, endDate: endDate, cheer: cheer, updated: String(opts.now()) });
       if (notify && assignee !== c.user.id && old.assignee !== assignee) event(gid, assignee, by + ' assigned you: ' + title, t.id);
       else if (notify && assignee !== c.user.id) event(gid, assignee, by + ' updated: ' + title, t.id);
       row = find('tasks', function (x) { return x.id === t.id; });
     } else {
       row = { id: newId(), groupId: gid, title: title, assignee: assignee, createdBy: c.user.id, date: t.date, time: time,
-        repeat: repeat, notify: String(notify), done: '[]', status: '{}', created: String(opts.now()), updated: String(opts.now()) };
+        repeat: repeat, notify: String(notify), done: '[]', status: '{}', created: String(opts.now()), updated: String(opts.now()),
+        endTime: endTime, endDate: endDate, cheer: cheer };
       db.insert('tasks', row);
       if (notify && assignee !== c.user.id) event(gid, assignee, by + ' assigned you: ' + title, row.id);
     }
@@ -533,7 +553,7 @@ var TABLES = {
   sessions: ['token', 'userId', 'expires'],
   groups: ['id', 'name', 'code', 'ownerId', 'created', 'type'],
   members: ['groupId', 'userId', 'nickname', 'role', 'joined'],
-  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated', 'status'],
+  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated', 'status', 'endTime', 'endDate', 'cheer'],
   events: ['id', 'groupId', 'toUser', 'text', 'taskId', 'created']
 };
 // ===== end core =====
@@ -575,9 +595,33 @@ var GT = {
 };
 var GT_ORDER = ['family', 'school', 'work', 'friends', 'church', 'sports', 'club', 'roommates', 'other'];
 function gt() { var t = S.data && S.data.group && S.data.group.type; return GT[t] || GT.family; }
+// Cheer messages shown when a task is done (all written for this app)
+var CHEERS = {
+  encouraging: { label: 'Encouraging', q: ['Small steps every day add up to big things.', 'You said you would, and you did. That is strength.', 'Done is better than perfect. Well done!', 'One more thing off the list. Keep going!', 'Proud of you for showing up today.', 'Progress, not perfection. You are getting there.'] },
+  study: { label: 'Study', q: ['Every page you read makes tomorrow easier.', 'Your future self says thank you for studying today.', 'Smart is built, one lesson at a time.', 'Homework done, brain stronger!', 'Learning is your superpower. Nice work.', 'You did the hard part. Now take a short break.'] },
+  fitness: { label: 'Fitness', q: ['Your body thanks you. Strong move!', 'Sweat today, smile tomorrow.', 'Every workout counts, even the short ones.', 'Healthy habit unlocked. Keep moving!', 'Water, steps, rest: you are taking care of you.', 'Stronger than yesterday.'] },
+  family: { label: 'Family love', q: ['Thank you for helping our home run smoothly!', 'Teamwork makes our family stronger.', 'Your help means a lot to all of us.', 'Ang galing! The family is proud of you.', 'A happy home is built by helping hands like yours.', 'Thank you, you made someone\'s day easier.'] },
+  faith: { label: 'Faith', q: ['Faithful in small things, faithful in much.', 'Do everything with love, and it becomes a blessing.', 'Grateful hearts get things done. Well done!', 'Thank God for the strength to finish this.', 'Serving others is a beautiful way to start the day.', 'Blessed to be a blessing. Great job!'] },
+  work: { label: 'Work', q: ['Task done. Momentum is on your side.', 'Great work moves the whole team forward.', 'Shipped it! On to the next one.', 'Reliable people make great teams. Thank you!', 'Focus paid off. Nice job.', 'Another win for the team.'] },
+  chores: { label: 'Chores', q: ['Clean space, clear mind. Nice job!', 'The house says thank you!', 'Chores done: freedom unlocked.', 'Helping at home is a quiet kind of hero work.', 'Sparkling work! Everyone will notice.', 'You made home a little nicer today.'] },
+  funny: { label: 'Funny', q: ['Task: 0. You: 1. Victory dance allowed.', 'You did it! Even the to-do list is impressed.', 'Achievement unlocked: Absolute Legend.', 'That task never stood a chance.', 'Somewhere, a checkbox is very happy right now.', 'Done so fast the task did not see you coming.'] }
+};
+var CHEER_ORDER = ['random', 'encouraging', 'study', 'fitness', 'family', 'faith', 'work', 'chores', 'funny', 'custom', 'none'];
+function cheerLabel(k) { return k === 'random' ? 'Surprise me' : k === 'custom' ? 'Write my own' : k === 'none' ? 'No message' : CHEERS[k].label; }
+function pickCheer(t) {
+  var c = t.cheer || { t: 'cat', c: 'random' };
+  if (c.t === 'none') return null;
+  if (c.t === 'custom' && c.x) return { text: c.x, from: t.createdBy !== (S.data && S.data.me.id) ? nickOf(t.createdBy) : '' };
+  var cat = CHEERS[c.c] ? c.c : Object.keys(CHEERS)[Math.floor(Math.random() * Object.keys(CHEERS).length)];
+  if (c.c === 'random' || !CHEERS[c.c]) cat = ['encouraging', 'funny', t.repeat !== 'once' ? 'encouraging' : 'funny'][Math.floor(Math.random() * 3)];
+  var q = CHEERS[cat].q; return { text: q[Math.floor(Math.random() * q.length)], from: '' };
+}
+function fmtRange(t) { return t.time ? fmtTime(t.time) + (t.endTime ? ' – ' + fmtTime(t.endTime) : '') : 'Any time'; }
+function nowHM() { var n = new Date(); return ('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2); }
 var REPEAT_LABEL = { once: 'Once', daily: 'Daily', weekdays: 'Weekdays', weekly: 'Weekly' };
 function occurs(t, d) {
   if (d < t.date) return false;
+  if (t.endDate && d > t.endDate) return false;
   if (t.repeat === 'daily') return true;
   if (t.repeat === 'weekdays') { var w = parseYmd(d).getDay(); return w > 0 && w < 6; }
   if (t.repeat === 'weekly') return parseYmd(d).getDay() === parseYmd(t.date).getDay();
@@ -614,7 +658,7 @@ var ERRORS = {
   bad_username: 'Username: 3–30 letters or numbers, no spaces.', weak_password: 'Password needs at least 6 characters.',
   username_taken: 'That username is taken. Try another.', wrong_login: 'Wrong username or password.',
   bad_reset_code: 'That code is not right, or it has expired. Check the username and the code.', wrong_old_password: 'Your current password is not right.',
-  cannot_nudge_self: 'This task is yours.',
+  cannot_nudge_self: 'This task is yours.', end_before_start: 'The end time must be after the start time.', bad_end_date: 'The "repeat until" date must be on or after the start date.',
   too_many_tries: 'Too many tries. Wait 15 minutes and try again.', bad_code: 'That invite code was not found. Check it with the person who invited you.',
   group_full: 'This group is full.', already_in_group: 'You are already in this group.', too_many_groups: 'You can be in up to 10 groups. Leave one first.', not_logged_in: 'Please log in again.',
   admins_only: 'Only the group admin can do that.', empty_title: 'Write what needs to be done.', not_allowed: 'Only the person who made or got this task can delete it.',
@@ -823,9 +867,12 @@ function todayView() {
     var done = isDone(t, d), mineT = t.assignee === me.id, st = stOf(t, d);
     var idx = Math.max(0, mem.findIndex(function (m) { return m.userId === t.assignee; }));
     var from = mineT ? (t.createdBy === me.id ? 'My task' : 'From ' + nickOf(t.createdBy)) : 'For ' + nickOf(t.assignee) + (t.createdBy === me.id ? ' · from me' : '');
-    var badge = st.s === 'ongoing' ? '<span class="badge ongoing">On going</span>' : st.s === 'later' ? '<span class="badge later">Later' + (st.until ? ' · ' + esc(fmtClock(st.until)) : '') + '</span>' : st.s === 'cancelled' ? '<span class="badge cancelled">Cancelled</span>' : '';
+    var hm = nowHM(), isToday = d === todayStr(), open = st.s !== 'done' && st.s !== 'cancelled';
+    var overdue = open && st.s !== 'later' && (d < todayStr() ? false : isToday && (t.endTime ? hm >= t.endTime : false));
+    var nowOn = open && isToday && t.time && t.endTime && hm >= t.time && hm < t.endTime;
+    var badge = overdue ? '<span class="badge cancelled">Time is up</span>' : (st.s === 'todo' && nowOn) ? '<span class="badge ongoing">Now until ' + esc(fmtTime(t.endTime)) + '</span>' : st.s === 'ongoing' ? '<span class="badge ongoing">On going</span>' : st.s === 'later' ? '<span class="badge later">Later' + (st.until ? ' · ' + esc(fmtClock(st.until)) : '') + '</span>' : st.s === 'cancelled' ? '<span class="badge cancelled">Cancelled</span>' : '';
     return '<div class="card ' + TONES[idx % TONES.length] + (done ? ' done' : '') + (st.s === 'cancelled' ? ' cancelled' : '') + '">' +
-      '<button class="body" data-edit="' + t.id + '" aria-label="Open ' + esc(t.title) + ', ' + ST_LABEL[st.s] + '"><span class="meta">' + ICON.clock + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + '</span>' +
+      '<button class="body" data-edit="' + t.id + '" aria-label="Open ' + esc(t.title) + ', ' + ST_LABEL[st.s] + '"><span class="meta">' + ICON.clock + esc(fmtRange(t)) + ' · ' + REPEAT_LABEL[t.repeat] + '</span>' +
       '<span class="title">' + esc(t.title) + '</span><span class="meta">' + esc(from) + '</span>' + badge + '</button>' +
       '<div class="side"><button class="check" data-toggle="' + t.id + '" role="checkbox" aria-checked="' + done + '" aria-label="Mark ' + esc(t.title) + ' done"><span>' + (done ? ICON.tick : '') + '</span></button>' +
       '<div class="av" style="background:' + colorOf(t.assignee) + '" title="' + esc(nickOf(t.assignee)) + '">' + esc(initials(nickOf(t.assignee))) + '</div></div></div>';
@@ -876,6 +923,14 @@ function navView() {
     '<nav class="nav">' + b('today', ICON.home, 'Home') + b('plan', ICON.cal, 'Plan') + '<div class="gap"></div>' + b('family', ICON.family, gt().nav) + b('me', ICON.me, 'Me') + '</nav>';
 }
 
+function cheerField(e) {
+  var cur = e.cheer.t === 'custom' ? 'custom' : e.cheer.t === 'none' ? 'none' : (e.cheer.c || 'random');
+  var chips = CHEER_ORDER.map(function (k) { return '<button type="button" class="tchip' + (k === cur ? ' on' : '') + '" data-cheer="' + k + '" aria-pressed="' + (k === cur) + '">' + esc(cheerLabel(k)) + '</button>'; }).join('');
+  var sample = cur === 'custom' ? '' : cur === 'none' ? 'No message will show.' : cur === 'random' ? 'A surprise encouraging or funny message.' : '“' + CHEERS[cur].q[0] + '”';
+  return '<div class="field"><span class="lbl">Cheer message when done</span><div class="tchips">' + chips + '</div>' +
+    (cur === 'custom' ? '<label for="cx" class="small" style="font-weight:600;margin-top:4px">Your message</label><input class="input" id="cx" maxlength="140" placeholder="e.g. Thank you anak! Ice cream later." value="' + esc(e.cheer.x || '') + '">'
+      : '<span class="small" style="font-style:italic">' + esc(sample) + '</span>') + '</div>';
+}
 function addView() {
   var e = S.edit, me = S.data.me;
   var pick = members().map(function (m, i) {
@@ -888,10 +943,15 @@ function addView() {
     '<form class="panel overlap" id="taskForm" novalidate>' +
     '<div class="field"><label for="tt">What needs to be done?</label><input class="input" id="tt" maxlength="80" placeholder="e.g. Buy rice and eggs" value="' + esc(e.title) + '"></div>' +
     '<div class="field"><span class="lbl">Assign to</span><div class="chips">' + pick + '</div></div>' +
-    '<div class="grid2"><div class="field"><label for="dd">Date</label><input class="input" id="dd" type="date" value="' + e.date + '"></div>' +
-    '<div class="field"><label for="tm">Time</label><input class="input" id="tm" type="time" value="' + esc(e.time) + '"></div></div>' +
+    '<div class="field"><label for="dd">' + (e.repeat === 'once' ? 'Date' : 'Starts on') + '</label><input class="input" id="dd" type="date" value="' + e.date + '"></div>' +
+    '<div class="field"><span class="lbl">Time frame <span class="small" style="font-weight:400">(optional)</span></span><div class="grid2">' +
+    '<div class="field"><label for="tm" class="small" style="font-weight:600">Start</label><input class="input" id="tm" type="time" value="' + esc(e.time) + '"></div>' +
+    '<div class="field"><label for="te" class="small" style="font-weight:600">Until</label><input class="input" id="te" type="time" value="' + esc(e.endTime) + '"></div></div>' +
+    '<div class="tchips" style="margin-top:2px">' + [['', 'No end time'], [30, '30 min'], [60, '1 hour'], [120, '2 hours']].map(function (o) { return '<button type="button" class="tchip" data-dur="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
     '<div class="field"><span class="lbl">Repeat</span><div class="seg">' + seg + '</div></div>' +
-    '<div class="notifyrow"><div class="bell">' + ICON.bell.replace('currentColor', '#14213D') + '</div><div class="col" style="flex:1"><span style="font-weight:600;font-size:14px">Notify ' + (e.assignee === me.id ? 'me' : 'their phone') + '</span><span class="small">' + (e.assignee === me.id ? 'Reminder at the set time' : 'When assigned, and a reminder at the set time') + '</span></div>' +
+    (e.repeat !== 'once' ? '<div class="field"><label for="ed">Repeat until <span class="small" style="font-weight:400">(optional, leave empty for no end)</span></label><input class="input" id="ed" type="date" min="' + e.date + '" value="' + esc(e.endDate) + '"></div>' : '') +
+    cheerField(e) +
+    '<div class="notifyrow"><div class="bell">' + ICON.bell.replace('currentColor', '#14213D') + '</div><div class="col" style="flex:1"><span style="font-weight:600;font-size:14px">Notify ' + (e.assignee === me.id ? 'me' : 'their phone') + '</span><span class="small">' + (e.assignee === me.id ? 'Reminder at the start time' : 'When assigned, and a reminder at the start time') + '</span></div>' +
     '<button type="button" class="switch" role="switch" id="notifySw" aria-checked="' + e.notify + '" aria-label="Notify"><span></span></button></div>' +
     '<div class="err" id="taskErr" role="alert"></div>' +
     '<button class="btn" type="submit" id="saveBtn">' + (e.id ? 'Save changes' : (e.assignee === me.id ? 'Add to my tasks' : 'Assign to ' + esc(who))) + '</button>' +
@@ -993,13 +1053,28 @@ function bindMain() {
 
 function openEdit(id) {
   var t = null; ((S.data && S.data.tasks) || []).forEach(function (x) { if (x.id === id) t = x; });
-  S.edit = t ? { id: t.id, title: t.title, assignee: t.assignee, date: t.date, time: t.time, repeat: t.repeat, notify: t.notify }
-    : { id: '', title: '', assignee: S.data.me.id, date: S.date < todayStr() ? todayStr() : S.date, time: '', repeat: 'once', notify: true };
+  S.edit = t ? { id: t.id, title: t.title, assignee: t.assignee, date: t.date, time: t.time, endTime: t.endTime || '', endDate: t.endDate || '', repeat: t.repeat, notify: t.notify, cheer: JSON.parse(JSON.stringify(t.cheer || { t: 'cat', c: 'random' })) }
+    : { id: '', title: '', assignee: S.data.me.id, date: S.date < todayStr() ? todayStr() : S.date, time: '', endTime: '', endDate: '', repeat: 'once', notify: true, cheer: { t: 'cat', c: 'random' } };
   S.back = S.view; go('add');
 }
 function bindAdd() {
   var e = S.edit;
-  function keep() { e.title = $('#tt').value; e.date = $('#dd').value || e.date; e.time = $('#tm').value; }
+  function keep() {
+    e.title = $('#tt').value; e.date = $('#dd').value || e.date; e.time = $('#tm').value; e.endTime = $('#te').value;
+    var ed = $('#ed'); e.endDate = ed ? ed.value : ''; var cx = $('#cx'); if (cx) e.cheer.x = cx.value;
+  }
+  document.querySelectorAll('[data-dur]').forEach(function (b) { b.onclick = function () {
+    keep(); var m = b.getAttribute('data-dur');
+    if (!m) { e.endTime = ''; render(); return; }
+    if (!e.time) { var n = new Date(); n.setMinutes(n.getMinutes() < 30 ? 30 : 60, 0, 0); e.time = ('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2); }
+    var mins = +e.time.slice(0, 2) * 60 + +e.time.slice(3) + +m; if (mins > 1439) mins = 1439;
+    e.endTime = ('0' + Math.floor(mins / 60)).slice(-2) + ':' + ('0' + mins % 60).slice(-2); render();
+  }; });
+  document.querySelectorAll('[data-cheer]').forEach(function (b) { b.onclick = function () {
+    keep(); var k = b.getAttribute('data-cheer');
+    e.cheer = k === 'custom' ? { t: 'custom', x: e.cheer.x || '' } : k === 'none' ? { t: 'none' } : { t: 'cat', c: k };
+    render(); if (k === 'custom') { var cx = $('#cx'); if (cx) cx.focus(); }
+  }; });
   $('#backBtn').onclick = function () { go(S.back === 'add' ? 'today' : S.back || 'today'); };
   document.querySelectorAll('[data-who]').forEach(function (b) { b.onclick = function () { keep(); e.assignee = b.getAttribute('data-who'); render(); }; });
   document.querySelectorAll('[data-rep]').forEach(function (b) { b.onclick = function () { keep(); e.repeat = b.getAttribute('data-rep'); render(); }; });
@@ -1009,6 +1084,8 @@ function bindAdd() {
   $('#taskForm').onsubmit = function (ev) {
     ev.preventDefault(); keep();
     if (!e.title.trim()) { $('#taskErr').textContent = errText('empty_title'); return; }
+    if (e.time && e.endTime && e.endTime <= e.time) { $('#taskErr').textContent = errText('end_before_start'); return; }
+    if (e.cheer.t === 'custom' && !(e.cheer.x || '').trim()) e.cheer = { t: 'cat', c: 'random' };
     var btn = $('#saveBtn'); btn.disabled = true;
     api('saveTask', { task: e }).then(function (r) {
       btn.disabled = false;
@@ -1019,11 +1096,20 @@ function bindAdd() {
     });
   };
 }
+function celebrate(t) {
+  var c = pickCheer(t); if (!c) return;
+  var dots = ''; if (!matchMedia('(prefers-reduced-motion: reduce)').matches) for (var i = 0; i < 26; i++) dots += '<i style="left:' + Math.round(Math.random() * 100) + '%;background:' + ['#FFC857', '#0F7C85', '#3767D6', '#FFB4A2', '#B8E6C1'][i % 5] + ';animation-delay:' + (Math.random() * .4).toFixed(2) + 's;animation-duration:' + (1.2 + Math.random()).toFixed(2) + 's"></i>';
+  sheet('<div class="confetti" aria-hidden="true">' + dots + '</div>' +
+    '<div class="col center" style="gap:12px;text-align:center;padding-top:6px"><div class="bigcheck">' + ICON.tick.replace(/width="16" height="16"/, 'width="40" height="40"').replace('#14213D', '#fff') + '</div>' +
+    '<h2 style="font-size:20px">' + esc(t.title) + ': done!</h2>' +
+    '<p class="cheer">“' + esc(c.text) + '”</p>' + (c.from ? '<span class="small">From ' + esc(c.from) + '</span>' : '') + '</div>' +
+    '<button class="btn teal" id="sOk">Thanks!</button>', function () { $('#sOk').onclick = closeSheet; });
+}
 function toggleDone(id) {
   var d = S.date, t = null; S.data.tasks.forEach(function (x) { if (x.id === id) t = x; });
   if (!t) return;
-  var i = t.done.indexOf(d); if (i >= 0) t.done.splice(i, 1); else { t.done.push(d); if (t.status) delete t.status[d]; }
-  render();
+  var i = t.done.indexOf(d), nowDone = i < 0; if (!nowDone) t.done.splice(i, 1); else { t.done.push(d); if (t.status) delete t.status[d]; }
+  render(); if (nowDone) celebrate(t);
   api('toggleDone', { taskId: id, date: d }).then(function (r) {
     if (!r.ok) { toast(errText(r.error)); sync(true); return; }
     t.done = r.done; if (r.status) t.status = r.status; saveCache(); scheduleNative();
@@ -1048,7 +1134,7 @@ function taskActions(id) {
   if (!mineT) acts += act('nudge', ICON.megaphone, 'Remind ' + nickOf(t.assignee), 'Send them a notification');
   acts += st.s === 'cancelled' ? act('todo', ICON.undo, 'Restore', 'Back to to-do') : act('cancel', ICON.ban, 'Cancel', mineT ? 'Skip it for this day' : 'Skip it for this day', 'warn');
   if (st.s !== 'todo' && st.s !== 'done' && st.s !== 'cancelled') acts += act('todo', ICON.undo, 'Back to to-do', 'Clear the status');
-  sheet('<div class="col" style="gap:4px"><span class="small">' + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + ' · for ' + esc(who) + (t.createdBy !== me.id ? ' · from ' + esc(nickOf(t.createdBy)) : '') + '</span><h2 style="font-size:19px">' + esc(t.title) + '</h2></div>' +
+  sheet('<div class="col" style="gap:4px"><span class="small">' + esc(fmtRange(t)) + ' · ' + REPEAT_LABEL[t.repeat] + (t.endDate ? ' until ' + esc(t.endDate) : '') + ' · for ' + esc(who) + (t.createdBy !== me.id ? ' · from ' + esc(nickOf(t.createdBy)) : '') + '</span><h2 style="font-size:19px">' + esc(t.title) + '</h2></div>' +
     '<div class="statusline"><b>Status:</b> ' + esc(line) + '</div>' +
     '<div class="actions">' + acts + '</div>' +
     '<div class="list" style="border:1.5px solid var(--line)"><button data-act="edit">' + ICON.edit + '<span class="grow">Edit task</span>' + ICON.next + '</button>' + (myRem ? '<button data-act="unremind">' + ICON.x + '<span class="grow">Remove my reminder</span></button>' : '') + '</div>' +
@@ -1076,7 +1162,7 @@ function setStatus(t, d, status, extra) {
   delete t.status[d];
   if (status === 'done') t.done.push(d);
   else if (status !== 'todo') t.status[d] = { s: status, by: S.data.me.id, at: Date.now(), until: extra.until, note: extra.note };
-  render();
+  render(); if (status === 'done') celebrate(t); else
   toast({ done: 'Marked done', ongoing: 'Marked as on going', later: 'Moved to later', cancelled: 'Cancelled for this day', todo: 'Back to to-do' }[status]);
   api('setStatus', { taskId: t.id, date: d, status: status, until: extra.until, note: extra.note }).then(function (r) {
     if (!r.ok) { t.done = old.done; t.status = old.status; render(); toast(errText(r.error)); return; }
@@ -1337,8 +1423,15 @@ function checkReminders() {
     if (t.time <= hm && !done[key]) {
       done[key] = 1;
       var mins = (now.getHours() * 60 + now.getMinutes()) - (+t.time.slice(0, 2) * 60 + +t.time.slice(3));
-      if (mins <= 30) { notify('Reminder: ' + t.title, fmtTime(t.time) + (t.createdBy !== t.assignee ? ' · from ' + nickOf(t.createdBy) : ''), key); toast('Reminder: ' + t.title); }
+      if (mins <= 30) { notify('Reminder: ' + t.title, fmtRange(t) + (t.createdBy !== t.assignee ? ' · from ' + nickOf(t.createdBy) : ''), key); toast('Reminder: ' + t.title); }
     }
+  });
+  // 10 minutes before a time frame ends
+  tasksOn(d).forEach(function (t) {
+    var stt = stOf(t, d).s;
+    if (t.assignee !== S.data.me.id || !t.endTime || !t.notify || stt === 'done' || stt === 'cancelled') return;
+    var endM = +t.endTime.slice(0, 2) * 60 + +t.endTime.slice(3), nowM = now.getHours() * 60 + now.getMinutes(), key = 'end' + t.id + d;
+    if (nowM >= endM - 10 && nowM < endM && !done[key]) { done[key] = 1; notify('10 minutes left: ' + t.title, 'Ends at ' + fmtTime(t.endTime), key); toast('10 minutes left: ' + t.title); }
   });
   ls('ft_reminded', JSON.stringify(done));
 }
@@ -1356,7 +1449,8 @@ function scheduleNative() {
         if (t.assignee !== me || !t.time || !t.notify || stt === 'done' || stt === 'cancelled' || stt === 'later') return;
         var at = parseYmd(d); at.setHours(+t.time.slice(0, 2), +t.time.slice(3), 0, 0);
         if (at.getTime() <= now) return;
-        list.push({ id: 100000 + i * 1000 + (list.length % 1000), title: 'Reminder: ' + t.title, body: fmtTime(t.time) + (t.createdBy !== me ? ' · from ' + nickOf(t.createdBy) : ''), schedule: { at: at, allowWhileIdle: true } });
+        list.push({ id: 100000 + i * 1000 + (list.length % 1000), title: 'Reminder: ' + t.title, body: fmtRange(t) + (t.createdBy !== me ? ' · from ' + nickOf(t.createdBy) : ''), schedule: { at: at, allowWhileIdle: true } });
+        if (t.endTime) { var en = parseYmd(d); en.setHours(+t.endTime.slice(0, 2), +t.endTime.slice(3) - 10, 0, 0); if (en.getTime() > now && en > at) list.push({ id: 100000 + i * 1000 + (list.length % 1000), title: '10 minutes left: ' + t.title, body: 'Ends at ' + fmtTime(t.endTime), schedule: { at: en, allowWhileIdle: true } }); }
       });
     }
     myReminders().forEach(function (r, k) { if (r.at > now) list.push({ id: 100000 + 7000 + k, title: 'Reminder: ' + r.title, body: 'You asked to be reminded', schedule: { at: new Date(r.at), allowWhileIdle: true } }); });
