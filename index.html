@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Family Tasks</title>
-<meta name="description" content="Daily goals, reminders and shared tasks for your family.">
+<meta name="description" content="Daily goals, reminders and shared tasks for your family, class, team or friends.">
 <meta name="theme-color" content="#0F7C85">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -68,7 +68,28 @@ h2{margin:0;font-size:17px;font-weight:600}
 .card .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;border:none;background:none;color:inherit;text-align:left;padding:0}
 .card .meta{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;opacity:.92}
 .card .title{font-size:16px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
-.card.done .title{text-decoration:line-through}
+.card.done .title,.card.cancelled .title{text-decoration:line-through}
+.card.cancelled{opacity:.55}
+.badge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--sun);color:var(--ink);margin-top:2px}
+.badge.later{background:#FFFFFF;color:var(--navy)}.badge.cancelled{background:#F2C4BF;color:#7A1A12}.badge.ongoing{background:var(--sun)}
+.card.white .badge.later{background:var(--teal-l)}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.act{min-height:64px;border:1.5px solid var(--line);background:var(--field);border-radius:16px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:10px 14px;text-align:left;color:var(--ink)}
+.act b{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}.act span{font-size:12px;color:var(--muted)}
+.act.primary{background:var(--teal);border-color:var(--teal);color:#fff}.act.primary span{color:#D4F0F2}
+.act.on{border-color:var(--teal);background:var(--teal-l)}
+.act.warn b{color:var(--danger)}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.opts button{min-height:48px;border:1.5px solid var(--line);background:var(--field);border-radius:14px;font-size:14px;font-weight:500;color:var(--ink)}
+.opts button:hover,.act:hover{border-color:var(--teal)}
+.statusline{background:var(--bg);border-radius:14px;padding:10px 12px;font-size:13px;color:#2E3B4E}
+.tchips{display:flex;flex-wrap:wrap;gap:8px}
+.tchip{min-height:40px;padding:0 14px;border-radius:99px;border:1.5px solid var(--line);background:var(--field);font-size:13px;font-weight:500;color:#2E3B4E}
+.tchip.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+.gswitch{display:inline-flex;align-items:center;gap:6px;border:none;background:rgba(255,255,255,.16);color:#fff;border-radius:99px;padding:6px 12px 6px 14px;font-size:13px;font-weight:600;min-height:36px;align-self:flex-start;max-width:100%}
+.gswitch span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reccode{font-size:28px;font-weight:700;letter-spacing:4px;text-align:center;background:var(--teal-l);color:var(--teal-d);border:1.5px dashed var(--teal);border-radius:16px;padding:14px}
+.sheet{max-height:92vh;overflow-y:auto}
 .card .side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:10px}
 .check{width:44px;height:44px;margin:-8px -8px 0 0;border:none;background:none;display:flex;align-items:center;justify-content:center;color:inherit}
 .check span{width:30px;height:30px;border-radius:99px;border:2px solid currentColor;display:flex;align-items:center;justify-content:center}
@@ -198,6 +219,8 @@ img,svg{max-width:100%}
 // opts: { hash(salt, password), rand(len), now() }
 function makeCore(db, opts) {
   var SESSION_DAYS = 90;
+  var TYPES = ['family', 'school', 'work', 'friends', 'church', 'sports', 'club', 'roommates', 'other'];
+  var MAX_GROUPS = 10;
   var CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   function fail(e) { return { ok: false, error: e }; }
@@ -205,6 +228,9 @@ function makeCore(db, opts) {
   function find(t, f) { var a = db.all(t); for (var i = 0; i < a.length; i++) if (f(a[i])) return a[i]; return null; }
   function filter(t, f) { return db.all(t).filter(f); }
   function newId() { return opts.rand(12); }
+  function recCode(n) { var s = ''; for (var i = 0; i < n; i++) s += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length)); return s; }
+  function normCode(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function parseJson(v, d) { try { return JSON.parse(v || '') || d; } catch (e) { return d; } }
   function newCode() { var s = ''; for (var i = 0; i < 4; i++) s += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length)); return 'FAM-' + s; }
   function validDate(d) { return /^\d{4}-\d{2}-\d{2}$/.test(String(d)); }
   function validTime(t) { return t === '' || /^\d{2}:\d{2}$/.test(String(t)); }
@@ -214,20 +240,26 @@ function makeCore(db, opts) {
     if (!s || Number(s.expires) < opts.now()) return null;
     return find('users', function (u) { return u.id === s.userId; });
   }
-  function membership(userId) { return find('members', function (m) { return m.userId === userId; }); }
+  function membership(userId, groupId) { return find('members', function (m) { return m.userId === userId && (!groupId || m.groupId === groupId); }); }
+  function myGroups(userId) {
+    return filter('members', function (m) { return m.userId === userId; }).map(function (m) {
+      var g = groupInfo(m.groupId); if (!g) return null;
+      g.role = m.role; g.nickname = m.nickname; return g;
+    }).filter(function (x) { return x; });
+  }
   function groupInfo(groupId) {
     var g = find('groups', function (x) { return x.id === groupId; });
     if (!g) return null;
-    return { id: g.id, name: g.name, code: g.code, ownerId: g.ownerId };
+    return { id: g.id, name: g.name, code: g.code, ownerId: g.ownerId, type: TYPES.indexOf(g.type) >= 0 ? g.type : 'family' };
   }
   function membersOf(groupId) {
     return filter('members', function (m) { return m.groupId === groupId; })
       .map(function (m) { return { userId: m.userId, nickname: m.nickname, role: m.role, joined: Number(m.joined) }; });
   }
   function publicTask(t) {
-    var done = []; try { done = JSON.parse(t.done || '[]'); } catch (e) {}
     return { id: t.id, title: t.title, assignee: t.assignee, createdBy: t.createdBy, date: t.date, time: t.time,
-      repeat: t.repeat, notify: String(t.notify) === 'true' || t.notify === true, done: done, updated: Number(t.updated) };
+      repeat: t.repeat, notify: String(t.notify) === 'true' || t.notify === true, done: parseJson(t.done, []),
+      status: parseJson(t.status, {}), updated: Number(t.updated) };
   }
   function nick(groupId, userId) {
     var m = find('members', function (x) { return x.groupId === groupId && x.userId === userId; });
@@ -241,14 +273,15 @@ function makeCore(db, opts) {
     db.insert('sessions', { token: token, userId: user.id, expires: String(opts.now() + SESSION_DAYS * 86400000) });
     return token;
   }
-  function me(user) {
-    var m = membership(user.id);
+  function me(user, groupId) {
+    var m = (groupId && membership(user.id, groupId)) || membership(user.id);
     return { ok: true, user: { id: user.id, username: user.username }, group: m ? groupInfo(m.groupId) : null,
-      role: m ? m.role : null, nickname: m ? m.nickname : null };
+      role: m ? m.role : null, nickname: m ? m.nickname : null, groups: myGroups(user.id) };
   }
   function needGroup(req) {
     var u = auth(req); if (!u) return { err: fail('not_logged_in') };
-    var m = membership(u.id); if (!m) return { err: fail('no_group') };
+    var m = (req.groupId && membership(u.id, String(req.groupId))) || membership(u.id);
+    if (!m) return { err: fail('no_group') };
     return { user: u, mem: m };
   }
 
@@ -258,10 +291,11 @@ function makeCore(db, opts) {
     if (!/^[a-z0-9._-]{3,30}$/.test(username)) return fail('bad_username');
     if (String(req.password || '').length < 6) return fail('weak_password');
     if (find('users', function (u) { return u.username === username; })) return fail('username_taken');
-    var salt = opts.rand(16);
-    var user = { id: newId(), username: username, salt: salt, hash: opts.hash(salt, String(req.password)), created: String(opts.now()) };
+    var salt = opts.rand(16), rec = recCode(8);
+    var user = { id: newId(), username: username, salt: salt, hash: opts.hash(salt, String(req.password)), created: String(opts.now()),
+      recHash: opts.hash(salt, 'rec:' + rec), resetHash: '', resetExp: '' };
     db.insert('users', user);
-    var r = me(user); r.token = session(user); return r;
+    var r = me(user); r.token = session(user); r.recoveryCode = rec.slice(0, 4) + '-' + rec.slice(4); return r;
   };
   A.login = function (req) {
     var username = clean(req.username, 30).toLowerCase();
@@ -269,37 +303,79 @@ function makeCore(db, opts) {
     if (!u || opts.hash(u.salt, String(req.password || '')) !== u.hash) return fail('wrong_login');
     var r = me(u); r.token = session(u); return r;
   };
+  // Forgot password: use your recovery code (given at sign-up) or a reset code from your family admin
+  A.resetPassword = function (req) {
+    var username = clean(req.username, 30).toLowerCase();
+    var u = find('users', function (x) { return x.username === username; });
+    var code = normCode(req.code);
+    if (!u || !code) return fail('bad_reset_code');
+    var okRec = u.recHash && opts.hash(u.salt, 'rec:' + code) === u.recHash;
+    var okReset = u.resetHash && Number(u.resetExp) > opts.now() && opts.hash(u.salt, 'reset:' + code) === u.resetHash;
+    if (!okRec && !okReset) return fail('bad_reset_code');
+    if (String(req.password || '').length < 6) return fail('weak_password');
+    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)), resetHash: '', resetExp: '' });
+    db.remove('sessions', function (s) { return s.userId === u.id; });
+    u = find('users', function (x) { return x.id === u.id; });
+    var r = me(u); r.token = session(u); return r;
+  };
+  A.changePassword = function (req) {
+    var u = auth(req); if (!u) return fail('not_logged_in');
+    if (opts.hash(u.salt, String(req.oldPassword || '')) !== u.hash) return fail('wrong_old_password');
+    if (String(req.password || '').length < 6) return fail('weak_password');
+    db.update('users', function (x) { return x.id === u.id; }, { hash: opts.hash(u.salt, String(req.password)) });
+    db.remove('sessions', function (s) { return s.userId === u.id && s.token !== String(req.token); });
+    return { ok: true };
+  };
+  A.newRecoveryCode = function (req) {
+    var u = auth(req); if (!u) return fail('not_logged_in');
+    if (opts.hash(u.salt, String(req.password || '')) !== u.hash) return fail('wrong_login');
+    var rec = recCode(8);
+    db.update('users', function (x) { return x.id === u.id; }, { recHash: opts.hash(u.salt, 'rec:' + rec) });
+    return { ok: true, recoveryCode: rec.slice(0, 4) + '-' + rec.slice(4) };
+  };
+  A.adminResetCode = function (req) {
+    var c = needGroup(req); if (c.err) return c.err;
+    if (c.mem.role !== 'admin') return fail('admins_only');
+    var m = find('members', function (x) { return x.groupId === c.mem.groupId && x.userId === req.userId; });
+    if (!m) return fail('not_a_member');
+    var u = find('users', function (x) { return x.id === req.userId; }); if (!u) return fail('not_found');
+    var code = recCode(6);
+    db.update('users', function (x) { return x.id === u.id; }, { resetHash: opts.hash(u.salt, 'reset:' + code), resetExp: String(opts.now() + 86400000) });
+    return { ok: true, code: code, username: u.username, nickname: m.nickname };
+  };
   A.logout = function (req) { db.remove('sessions', function (s) { return s.token === String(req.token || ''); }); return { ok: true }; };
   A.me = function (req) { var u = auth(req); return u ? me(u) : fail('not_logged_in'); };
 
   A.createGroup = function (req) {
     var u = auth(req); if (!u) return fail('not_logged_in');
-    if (membership(u.id)) return fail('already_in_group');
-    var name = clean(req.name, 40) || 'My Family';
+    if (myGroups(u.id).length >= MAX_GROUPS) return fail('too_many_groups');
+    var type = TYPES.indexOf(req.type) >= 0 ? req.type : 'family';
+    var name = clean(req.name, 40) || 'My Group';
     var nickname = clean(req.nickname, 20) || u.username;
     var code; do { code = newCode(); } while (find('groups', function (g) { return g.code === code; }));
-    var g = { id: newId(), name: name, code: code, ownerId: u.id, created: String(opts.now()) };
+    var g = { id: newId(), name: name, code: code, ownerId: u.id, created: String(opts.now()), type: type };
     db.insert('groups', g);
     db.insert('members', { groupId: g.id, userId: u.id, nickname: nickname, role: 'admin', joined: String(opts.now()) });
-    return me(u);
+    return me(u, g.id);
   };
   A.joinGroup = function (req) {
     var u = auth(req); if (!u) return fail('not_logged_in');
-    if (membership(u.id)) return fail('already_in_group');
+    if (myGroups(u.id).length >= MAX_GROUPS) return fail('too_many_groups');
     var code = clean(req.code, 12).toUpperCase().replace(/\s/g, '');
     if (code && code.indexOf('FAM-') !== 0) code = 'FAM-' + code;
     var g = find('groups', function (x) { return x.code === code; });
     if (!g) return fail('bad_code');
+    if (membership(u.id, g.id)) return fail('already_in_group');
     if (membersOf(g.id).length >= 30) return fail('group_full');
     var nickname = clean(req.nickname, 20) || u.username;
     db.insert('members', { groupId: g.id, userId: u.id, nickname: nickname, role: 'member', joined: String(opts.now()) });
-    membersOf(g.id).forEach(function (m) { if (m.userId !== u.id) event(g.id, m.userId, nickname + ' joined the family', ''); });
-    return me(u);
+    membersOf(g.id).forEach(function (m) { if (m.userId !== u.id) event(g.id, m.userId, nickname + ' joined ' + g.name, ''); });
+    return me(u, g.id);
   };
   A.leaveGroup = function (req) {
     var c = needGroup(req); if (c.err) return c.err;
     var gid = c.mem.groupId;
-    db.remove('members', function (m) { return m.userId === c.user.id; });
+    db.remove('members', function (m) { return m.userId === c.user.id && m.groupId === gid; });
     var left = membersOf(gid);
     if (!left.length) {
       db.remove('groups', function (g) { return g.id === gid; });
@@ -313,7 +389,7 @@ function makeCore(db, opts) {
   A.setNickname = function (req) {
     var c = needGroup(req); if (c.err) return c.err;
     var n = clean(req.nickname, 20); if (!n) return fail('empty_nickname');
-    db.update('members', function (m) { return m.userId === c.user.id; }, { nickname: n });
+    db.update('members', function (m) { return m.userId === c.user.id && m.groupId === c.mem.groupId; }, { nickname: n });
     return { ok: true };
   };
   A.removeMember = function (req) {
@@ -322,6 +398,15 @@ function makeCore(db, opts) {
     if (req.userId === c.user.id) return fail('use_leave');
     db.remove('members', function (m) { return m.groupId === c.mem.groupId && m.userId === req.userId; });
     return { ok: true };
+  };
+  A.updateGroup = function (req) {
+    var c = needGroup(req); if (c.err) return c.err;
+    if (c.mem.role !== 'admin') return fail('admins_only');
+    var patch = {}, name = clean(req.name, 40);
+    if (name) patch.name = name;
+    if (TYPES.indexOf(req.type) >= 0) patch.type = req.type;
+    db.update('groups', function (g) { return g.id === c.mem.groupId; }, patch);
+    return { ok: true, group: groupInfo(c.mem.groupId) };
   };
   A.newCode = function (req) {
     var c = needGroup(req); if (c.err) return c.err;
@@ -339,7 +424,7 @@ function makeCore(db, opts) {
     var events = filter('events', function (e) { return e.toUser === c.user.id && Number(e.created) > since; })
       .map(function (e) { return { id: e.id, text: e.text, taskId: e.taskId, created: Number(e.created) }; });
     return { ok: true, group: groupInfo(gid), members: membersOf(gid), tasks: tasks, events: events,
-      me: { id: c.user.id, username: c.user.username, nickname: c.mem.nickname, role: c.mem.role }, now: opts.now() };
+      me: { id: c.user.id, username: c.user.username, nickname: c.mem.nickname, role: c.mem.role }, groups: myGroups(c.user.id), now: opts.now() };
   };
   A.saveTask = function (req) {
     var c = needGroup(req); if (c.err) return c.err;
@@ -361,7 +446,7 @@ function makeCore(db, opts) {
       row = find('tasks', function (x) { return x.id === t.id; });
     } else {
       row = { id: newId(), groupId: gid, title: title, assignee: assignee, createdBy: c.user.id, date: t.date, time: time,
-        repeat: repeat, notify: String(notify), done: '[]', created: String(opts.now()), updated: String(opts.now()) };
+        repeat: repeat, notify: String(notify), done: '[]', status: '{}', created: String(opts.now()), updated: String(opts.now()) };
       db.insert('tasks', row);
       if (notify && assignee !== c.user.id) event(gid, assignee, by + ' assigned you: ' + title, row.id);
     }
@@ -376,10 +461,45 @@ function makeCore(db, opts) {
     var i = done.indexOf(req.date), nowDone = i < 0;
     if (nowDone) done.push(req.date); else done.splice(i, 1);
     done = done.sort().slice(-120);
-    db.update('tasks', function (x) { return x.id === t.id; }, { done: JSON.stringify(done), updated: String(opts.now()) });
+    var smap = parseJson(t.status, {}); delete smap[req.date];
+    db.update('tasks', function (x) { return x.id === t.id; }, { done: JSON.stringify(done), status: JSON.stringify(smap), updated: String(opts.now()) });
     if (nowDone && t.createdBy !== c.user.id && String(t.notify) === 'true')
       event(c.mem.groupId, t.createdBy, c.mem.nickname + ' finished: ' + t.title, t.id);
-    return { ok: true, done: done };
+    return { ok: true, done: done, status: smap };
+  };
+  var STATUS_TEXT = { ongoing: 'started', later: 'will do later', cancelled: 'cancelled', done: 'finished', todo: 'moved back to to-do' };
+  A.setStatus = function (req) {
+    var c = needGroup(req); if (c.err) return c.err;
+    var t = find('tasks', function (x) { return x.id === req.taskId && x.groupId === c.mem.groupId; });
+    if (!t) return fail('not_found');
+    if (!validDate(req.date)) return fail('bad_date');
+    var st = String(req.status);
+    if (!STATUS_TEXT[st]) return fail('bad_status');
+    var done = parseJson(t.done, []), map = parseJson(t.status, {}), d = req.date;
+    var i = done.indexOf(d); if (i >= 0) done.splice(i, 1);
+    delete map[d];
+    if (st === 'done') done.push(d);
+    else if (st !== 'todo') {
+      var e = { s: st, by: c.user.id, at: opts.now() };
+      if (st === 'later' && req.until) e.until = Number(req.until);
+      var note = clean(req.note, 120); if (note) e.note = note;
+      map[d] = e;
+    }
+    var keys = Object.keys(map).sort(); while (keys.length > 60) delete map[keys.shift()];
+    db.update('tasks', function (x) { return x.id === t.id; }, { done: JSON.stringify(done.sort().slice(-120)), status: JSON.stringify(map), updated: String(opts.now()) });
+    if (String(t.notify) === 'true' && st !== 'todo') {
+      var text = c.mem.nickname + ' ' + STATUS_TEXT[st] + ': ' + t.title + (map[d] && map[d].note ? ' (' + map[d].note + ')' : '');
+      [t.createdBy, t.assignee].forEach(function (uid, k, arr) { if (uid !== c.user.id && arr.indexOf(uid) === k) event(c.mem.groupId, uid, text, t.id); });
+    }
+    return { ok: true, done: done, status: map };
+  };
+  A.nudge = function (req) {
+    var c = needGroup(req); if (c.err) return c.err;
+    var t = find('tasks', function (x) { return x.id === req.taskId && x.groupId === c.mem.groupId; });
+    if (!t) return fail('not_found');
+    if (t.assignee === c.user.id) return fail('cannot_nudge_self');
+    event(c.mem.groupId, t.assignee, c.mem.nickname + ' reminded you: ' + t.title, t.id);
+    return { ok: true };
   };
   A.deleteTask = function (req) {
     var c = needGroup(req); if (c.err) return c.err;
@@ -392,7 +512,7 @@ function makeCore(db, opts) {
   A.deleteAccount = function (req) {
     var u = auth(req); if (!u) return fail('not_logged_in');
     if (opts.hash(u.salt, String(req.password || '')) !== u.hash) return fail('wrong_login');
-    if (membership(u.id)) A.leaveGroup(req);
+    myGroups(u.id).forEach(function (g) { A.leaveGroup({ token: req.token, groupId: g.id }); });
     db.remove('sessions', function (s) { return s.userId === u.id; });
     db.remove('events', function (e) { return e.toUser === u.id; });
     db.remove('users', function (x) { return x.id === u.id; });
@@ -409,11 +529,11 @@ function makeCore(db, opts) {
 }
 
 var TABLES = {
-  users: ['id', 'username', 'salt', 'hash', 'created'],
+  users: ['id', 'username', 'salt', 'hash', 'created', 'recHash', 'resetHash', 'resetExp'],
   sessions: ['token', 'userId', 'expires'],
-  groups: ['id', 'name', 'code', 'ownerId', 'created'],
+  groups: ['id', 'name', 'code', 'ownerId', 'created', 'type'],
   members: ['groupId', 'userId', 'nickname', 'role', 'joined'],
-  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated'],
+  tasks: ['id', 'groupId', 'title', 'assignee', 'createdBy', 'date', 'time', 'repeat', 'notify', 'done', 'created', 'updated', 'status'],
   events: ['id', 'groupId', 'toUser', 'text', 'taskId', 'created']
 };
 // ===== end core =====
@@ -442,6 +562,19 @@ function addDays(s, n) { var d = parseYmd(s); d.setDate(d.getDate() + n); return
 function todayStr() { return ymd(new Date()); }
 function fmtTime(t) { if (!t) return 'Any time'; var h = +t.slice(0, 2), m = t.slice(3); return ((h + 11) % 12 + 1) + ':' + m + (h < 12 ? ' AM' : ' PM'); }
 function initials(n) { var w = String(n || '?').trim().split(/\s+/); return ((w[0] || '?').charAt(0) + (w[1] ? w[1].charAt(0) : '')).toUpperCase(); }
+var GT = {
+  family:   { label: 'Family', nav: 'Family', word: 'family', name: 'e.g. Espinoza Family', nick: 'e.g. Kuya Jas, Mama, Bunso' },
+  school:   { label: 'School / Class', nav: 'Class', word: 'class', name: 'e.g. Grade 7 – Rizal', nick: 'e.g. Jas, Ma\'am Liza, Leader' },
+  work:     { label: 'Work / Office', nav: 'Team', word: 'team', name: 'e.g. Marketing Team', nick: 'e.g. Jas (Design), Boss' },
+  friends:  { label: 'Friends', nav: 'Friends', word: 'group', name: 'e.g. Barkada', nick: 'e.g. Jas, Bestie' },
+  church:   { label: 'Church / Ministry', nav: 'Group', word: 'group', name: 'e.g. Youth Ministry', nick: 'e.g. Sis Jas, Pastor' },
+  sports:   { label: 'Sports team', nav: 'Team', word: 'team', name: 'e.g. Volleyball Team', nick: 'e.g. Jas #7, Coach' },
+  club:     { label: 'Club / Org', nav: 'Club', word: 'club', name: 'e.g. Book Club', nick: 'e.g. Jas, President' },
+  roommates:{ label: 'Roommates', nav: 'House', word: 'house', name: 'e.g. Unit 5B', nick: 'e.g. Jas, Room 2' },
+  other:    { label: 'Other', nav: 'Group', word: 'group', name: 'e.g. Project Alpha', nick: 'e.g. Jas' }
+};
+var GT_ORDER = ['family', 'school', 'work', 'friends', 'church', 'sports', 'club', 'roommates', 'other'];
+function gt() { var t = S.data && S.data.group && S.data.group.type; return GT[t] || GT.family; }
 var REPEAT_LABEL = { once: 'Once', daily: 'Daily', weekdays: 'Weekdays', weekly: 'Weekly' };
 function occurs(t, d) {
   if (d < t.date) return false;
@@ -467,14 +600,24 @@ var ICON = {
   x: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   eye: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.1 3.9M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  dots: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  play: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5 3.5-5 3.5z"/></svg>',
+  later: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14M5 21h14M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>',
+  done: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
+  ban: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg>',
+  undo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
+  megaphone: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>',
+  edit: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
   house: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 15l2 2 4-4"/></svg>'
 };
 var ERRORS = {
   bad_username: 'Username: 3–30 letters or numbers, no spaces.', weak_password: 'Password needs at least 6 characters.',
   username_taken: 'That username is taken. Try another.', wrong_login: 'Wrong username or password.',
-  too_many_tries: 'Too many tries. Wait 15 minutes and try again.', bad_code: 'That invite code was not found. Check it with your family.',
-  group_full: 'This family group is full.', already_in_group: 'You are already in a family group.', not_logged_in: 'Please log in again.',
-  admins_only: 'Only the family admin can do that.', empty_title: 'Write what needs to be done.', not_allowed: 'Only the person who made or got this task can delete it.',
+  bad_reset_code: 'That code is not right, or it has expired. Check the username and the code.', wrong_old_password: 'Your current password is not right.',
+  cannot_nudge_self: 'This task is yours.',
+  too_many_tries: 'Too many tries. Wait 15 minutes and try again.', bad_code: 'That invite code was not found. Check it with the person who invited you.',
+  group_full: 'This group is full.', already_in_group: 'You are already in this group.', too_many_groups: 'You can be in up to 10 groups. Leave one first.', not_logged_in: 'Please log in again.',
+  admins_only: 'Only the group admin can do that.', empty_title: 'Write what needs to be done.', not_allowed: 'Only the person who made or got this task can delete it.',
   network: 'No internet connection. Try again when online.', signups_full_today: 'Too many new accounts today. Try tomorrow.', busy_try_again: 'Busy, please try again.'
 };
 function errText(e) { return ERRORS[e] || ('Something went wrong (' + e + ').'); }
@@ -499,6 +642,7 @@ function demo() {
 }
 function api(action, body) {
   body = body || {}; body.action = action; body.token = body.token || S.token;
+  if (S.gid && body.groupId === undefined) body.groupId = S.gid;
   var url = apiUrl();
   if (!url) return Promise.resolve(JSON.parse(JSON.stringify(demo()[action](body))));
   return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
@@ -508,7 +652,7 @@ function api(action, body) {
 
 // ---------- State ----------
 var S = {
-  token: ls('ft_token'), data: null, view: 'today', date: todayStr(), tab: 'all', edit: null, busy: false,
+  token: ls('ft_token'), gid: ls('ft_gid') || '', adding: false, data: null, view: 'today', date: todayStr(), tab: 'all', edit: null, busy: false,
   lastEvent: Number(ls('ft_lastEvent') || 0), unread: 0
 };
 try { S.data = JSON.parse(ls('ft_cache') || 'null'); } catch (e) {}
@@ -525,12 +669,16 @@ function tasksOn(d) {
     .sort(function (a, b) { return (a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : a.title < b.title ? -1 : 1; });
 }
 function isDone(t, d) { return t.done.indexOf(d) >= 0; }
+function stOf(t, d) { if (isDone(t, d)) return { s: 'done' }; var m = (t.status || {})[d]; return m || { s: 'todo' }; }
+function fmtClock(ms) { var x = new Date(ms); return fmtTime(('0' + x.getHours()).slice(-2) + ':' + ('0' + x.getMinutes()).slice(-2)); }
+function fmtWhen(ms) { var x = new Date(ms); return (ymd(x) === todayStr() ? 'today' : ymd(x) === addDays(todayStr(), 1) ? 'tomorrow' : MONTHS[x.getMonth()].slice(0, 3) + ' ' + x.getDate()) + ' ' + fmtClock(ms); }
+var ST_LABEL = { todo: 'To do', ongoing: 'On going', later: 'Later', cancelled: 'Cancelled', done: 'Done' };
 
 // ---------- Rendering ----------
 function render() {
   var app = $('#app');
   if (!S.token) { app.innerHTML = authView(); bindAuth(); return; }
-  if (!S.data || !S.data.group) { app.innerHTML = setupView(); bindSetup(); return; }
+  if (!S.data || !S.data.group || S.adding) { app.innerHTML = setupView(); bindSetup(); return; }
   var v = S.view;
   var html = v === 'add' ? addView() : v === 'family' ? familyView() : v === 'me' ? meView() : v === 'plan' ? planView() : todayView();
   if (v !== 'add') html += navView();
@@ -542,8 +690,8 @@ function authView() {
   var signup = S.authMode === 'signup';
   return '<div class="auth">' +
     '<div class="col center" style="gap:14px"><div class="logo">' + ICON.house + '</div>' +
-    '<h1 style="font-size:30px">Family Tasks</h1><p class="small" style="margin:0;font-size:15px">Daily goals and reminders for your family, together in one place.</p></div>' +
-    (pendingCode ? '<div class="note">You were invited to a family. ' + (signup ? 'Create' : 'Log in to') + ' your account first, then you will join with code <b>' + esc(pendingCode) + '</b>.</div>' : '') +
+    '<h1 style="font-size:30px">Family Tasks</h1><p class="small" style="margin:0;font-size:15px">Daily goals, reminders and shared tasks for your family, class, team or friends.</p></div>' +
+    (pendingCode ? '<div class="note">You were invited to a group. ' + (signup ? 'Create' : 'Log in to') + ' your account first, then you will join with code <b>' + esc(pendingCode) + '</b>.</div>' : '') +
     '<form class="panel" id="authForm" novalidate>' +
     '<h2>' + (signup ? 'Create your account' : 'Log in') + '</h2>' +
     '<div class="field"><label for="u">Username</label><input class="input" id="u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jas"></div>' +
@@ -551,13 +699,15 @@ function authView() {
     (signup ? '<div class="field"><label for="p2">Confirm password</label><div class="pwwrap"><input class="input pw" id="p2" type="password" autocomplete="new-password" placeholder="Type the password again"><button type="button" class="eye" data-eye="p2" aria-label="Show password" aria-pressed="false">' + ICON.eye + '</button></div></div>' : '') +
     '<div class="err" id="authErr" role="alert"></div>' +
     '<button class="btn teal" id="authBtn" type="submit">' + (signup ? 'Create account' : 'Log in') + '</button>' +
+    (signup ? '' : '<button class="linkbtn" type="button" id="forgotBtn" style="padding-top:0;margin-top:-6px">Forgot password?</button>') +
     '<button class="linkbtn" type="button" id="authSwitch">' + (signup ? 'I already have an account' : 'New here? Create an account') + '</button>' +
     '</form>' +
-    (apiUrl() ? '<p class="small" style="text-align:center;margin:0">Your login is kept in your family\'s private Google Sheet. <a href="privacy.html">Privacy</a></p>'
-      : '<div class="note"><b>Demo mode:</b> accounts and tasks are saved only on this phone until the family Google Sheet is connected. <a href="privacy.html">Privacy</a></div>') +
+    (apiUrl() ? '<p class="small" style="text-align:center;margin:0">Your login is kept in a private Google Sheet. <a href="privacy.html">Privacy</a></p>'
+      : '<div class="note"><b>Demo mode:</b> accounts and tasks are saved only on this phone until the Google Sheet is connected. <a href="privacy.html">Privacy</a></div>') +
     '</div>';
 }
 function bindAuth() {
+  var fb = $('#forgotBtn'); if (fb) fb.onclick = function () { forgotPassword($('#u').value); };
   $('#authSwitch').onclick = function () { S.authMode = S.authMode === 'signup' ? 'login' : 'signup'; render(); };
   $('#authForm').onsubmit = function (e) {
     e.preventDefault();
@@ -569,44 +719,87 @@ function bindAuth() {
       if (!r.ok) { $('#authErr').textContent = errText(r.error); return; }
       S.token = r.token; ls('ft_token', r.token);
       S.username = r.user.username;
+      if (r.recoveryCode) showRecovery(r.recoveryCode, true);
       if (r.group) { sync(true); } else { S.data = null; render(); }
     });
   };
 }
 
 function setupView() {
+  var adding = S.adding && S.data && S.data.group, type = S.newType || 'family', T = GT[type];
+  var chips = GT_ORDER.map(function (k) { return '<button type="button" class="tchip' + (k === type ? ' on' : '') + '" data-type="' + k + '" aria-pressed="' + (k === type) + '">' + esc(GT[k].label) + '</button>'; }).join('');
   return '<div class="screen plain"><div class="header"><div class="blob" style="right:-60px;top:-70px;width:200px;height:200px"></div>' +
-    '<div class="row between" style="position:relative"><div class="col"><span class="hello">Welcome!</span><h1>Set up your family</h1></div>' +
-    '<button class="iconbtn" id="logoutTop" aria-label="Log out">' + ICON.x + '</button></div>' +
-    '<p style="margin:0;color:#D4F0F2;font-size:14px;position:relative">Join your family with an invite code, or start a new private group.</p></div>' +
+    '<div class="row between" style="position:relative"><div class="col"><span class="hello">' + (adding ? 'Add another group' : 'Welcome!') + '</span><h1>' + (adding ? 'Join or create a group' : 'Set up your group') + '</h1></div>' +
+    (adding ? '<button class="iconbtn" id="setupBack" aria-label="Back">' + ICON.x + '</button>' : '<button class="iconbtn" id="logoutTop" aria-label="Log out">' + ICON.x + '</button>') + '</div>' +
+    '<p style="margin:0;color:#D4F0F2;font-size:14px;position:relative">Join with an invite code, or start a new private group for your family, class, team, friends and more.</p></div>' +
     '<div class="pad setupgrid" style="margin-top:20px">' +
     '<form class="panel" id="joinForm" novalidate><h2>Join with invite code</h2>' +
     '<div class="field"><label for="code">Invite code</label><input class="input code" id="code" placeholder="FAM-8K2Q" autocapitalize="characters" value="' + esc(pendingCode) + '"></div>' +
-    '<div class="field"><label for="nick1">Your nickname in the family</label><input class="input" id="nick1" maxlength="20" placeholder="e.g. Kuya Jas, Mama, Bunso"></div>' +
-    '<div class="err" id="joinErr" role="alert"></div><button class="btn" type="submit">Join family</button></form>' +
+    '<div class="field"><label for="nick1">Your nickname in the group</label><input class="input" id="nick1" maxlength="20" placeholder="e.g. Kuya Jas, Ma\'am Liza, Coach"></div>' +
+    '<div class="err" id="joinErr" role="alert"></div><button class="btn" type="submit">Join group</button></form>' +
     '<div class="divider">or</div>' +
-    '<form class="panel" id="createForm" novalidate><h2>Create a new family group</h2>' +
-    '<div class="field"><label for="gname">Family name</label><input class="input" id="gname" maxlength="40" placeholder="e.g. Espinoza Family"></div>' +
-    '<div class="field"><label for="nick2">Your nickname</label><input class="input" id="nick2" maxlength="20" placeholder="e.g. Kuya Jas"></div>' +
-    '<div class="err" id="createErr" role="alert"></div><button class="btn teal" type="submit">Create group and get invite code</button></form>' +
+    '<form class="panel" id="createForm" novalidate><h2>Create a new group</h2>' +
+    '<div class="field"><span class="lbl">What kind of group?</span><div class="tchips">' + chips + '</div></div>' +
+    '<div class="field"><label for="gname">Group name</label><input class="input" id="gname" maxlength="40" placeholder="' + esc(T.name) + '" value="' + esc(S.newName || '') + '"></div>' +
+    '<div class="field"><label for="nick2">Your nickname</label><input class="input" id="nick2" maxlength="20" placeholder="' + esc(T.nick) + '" value="' + esc(S.newNick || '') + '"></div>' +
+    '<div class="err" id="createErr" role="alert"></div><button class="btn teal" type="submit">Create ' + esc(T.label.split(' /')[0].toLowerCase()) + ' group</button></form>' +
     '</div></div>';
 }
+function afterGroup(r, msg, view) {
+  S.adding = false; S.gid = r.group.id; ls('ft_gid', S.gid); S.newName = S.newNick = ''; S.newType = '';
+  S.lastEvent = 0; ls('ft_lastEvent', null); ls('ft_inbox', null);
+  if (view) S.view = view; else S.view = 'today';
+  toast(msg); sync(true);
+}
 function bindSetup() {
-  $('#logoutTop').onclick = logout;
+  var lo = $('#logoutTop'); if (lo) lo.onclick = logout;
+  var bk = $('#setupBack'); if (bk) bk.onclick = function () { S.adding = false; render(); };
+  document.querySelectorAll('[data-type]').forEach(function (b) { b.onclick = function () { S.newName = $('#gname').value; S.newNick = $('#nick2').value; S.newType = b.getAttribute('data-type'); render(); var g = $('#gname'); if (g) g.focus(); }; });
   $('#joinForm').onsubmit = function (e) {
     e.preventDefault();
-    api('joinGroup', { code: $('#code').value, nickname: $('#nick1').value }).then(function (r) {
+    api('joinGroup', { code: $('#code').value, nickname: $('#nick1').value, groupId: '' }).then(function (r) {
       if (!r.ok) { $('#joinErr').textContent = errText(r.error); return; }
-      pendingCode = ''; ls('ft_pendingCode', null); toast('Welcome to ' + r.group.name + '!'); sync(true);
+      pendingCode = ''; ls('ft_pendingCode', null); afterGroup(r, 'Welcome to ' + r.group.name + '!');
     });
   };
   $('#createForm').onsubmit = function (e) {
     e.preventDefault();
-    api('createGroup', { name: $('#gname').value, nickname: $('#nick2').value }).then(function (r) {
+    api('createGroup', { name: $('#gname').value, nickname: $('#nick2').value, type: S.newType || 'family', groupId: '' }).then(function (r) {
       if (!r.ok) { $('#createErr').textContent = errText(r.error); return; }
-      S.view = 'family'; toast('Family created! Share your invite code.'); sync(true);
+      afterGroup(r, 'Group created! Share your invite code.', 'family');
     });
   };
+}
+
+// Switch between groups, or add another
+function groupSheet() {
+  var gs = (S.data && S.data.groups) || [];
+  sheet('<h2>Your groups</h2><div class="list" style="border:1.5px solid var(--line)">' + gs.map(function (g) {
+    var T = GT[g.type] || GT.family;
+    return '<button data-gid="' + g.id + '"><span class="col grow"><span style="font-weight:600">' + esc(g.name) + '</span><span class="small">' + esc(T.label) + ' · ' + esc(g.nickname) + (g.role === 'admin' ? ' · Admin' : '') + '</span></span>' + (g.id === S.gid ? '<span class="badge" style="margin:0">Open</span>' : ICON.next) + '</button>';
+  }).join('') + '</div><button class="btn teal" id="addGroup">' + ICON.plus + 'Join or create another group</button><button class="btn ghost" id="sNo">Close</button>', function (host) {
+    $('#sNo').onclick = closeSheet;
+    $('#addGroup').onclick = function () { closeSheet(); S.adding = true; S.newType = ''; render(); window.scrollTo(0, 0); };
+    host.querySelectorAll('[data-gid]').forEach(function (b) { b.onclick = function () { switchGroup(b.getAttribute('data-gid')); }; });
+  });
+}
+function switchGroup(id) {
+  closeSheet(); if (id === S.gid) return;
+  S.gid = id; ls('ft_gid', id); S.lastEvent = 0; ls('ft_lastEvent', null); ls('ft_inbox', null); S.unread = 0;
+  var g = ((S.data && S.data.groups) || []).filter(function (x) { return x.id === id; })[0];
+  S.view = 'today'; S.date = todayStr();
+  if (g) toast('Opened ' + g.name);
+  sync(true);
+}
+function groupSettings() {
+  var g = S.data.group, type = g.type || 'family';
+  sheet('<h2>Group settings</h2><div class="field"><label for="sgName">Group name</label><input class="input" id="sgName" maxlength="40" value="' + esc(g.name) + '"></div>' +
+    '<div class="field"><span class="lbl">Kind of group</span><div class="tchips">' + GT_ORDER.map(function (k) { return '<button type="button" class="tchip' + (k === type ? ' on' : '') + '" data-st="' + k + '" aria-pressed="' + (k === type) + '">' + esc(GT[k].label) + '</button>'; }).join('') + '</div></div>' +
+    '<div class="err" id="sgErr"></div><button class="btn teal" id="sOk">Save</button><button class="btn ghost" id="sNo">Cancel</button>', function (host) {
+    $('#sNo').onclick = closeSheet;
+    host.querySelectorAll('[data-st]').forEach(function (b) { b.onclick = function () { type = b.getAttribute('data-st'); host.querySelectorAll('[data-st]').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); }; });
+    $('#sOk').onclick = function () { api('updateGroup', { name: $('#sgName').value, type: type }).then(function (r) { if (!r.ok) { $('#sgErr').textContent = errText(r.error); return; } closeSheet(); toast('Group updated'); sync(true); }); };
+  });
 }
 
 function headerBlobs() { return '<div class="blob" style="right:-60px;top:-70px;width:200px;height:200px"></div><div class="blob" style="right:30px;top:70px;width:90px;height:90px;background:rgba(255,255,255,.06)"></div>'; }
@@ -615,7 +808,7 @@ function todayView() {
   var d = S.date, me = S.data.me, all = tasksOn(d);
   var list = S.tab === 'mine' ? all.filter(function (t) { return t.assignee === me.id; }) : all;
   var mine = all.filter(function (t) { return t.assignee === me.id; });
-  var base = S.tab === 'mine' ? mine : all;
+  var base = (S.tab === 'mine' ? mine : all).filter(function (t) { return stOf(t, d).s !== 'cancelled'; });
   var doneN = base.filter(function (t) { return isDone(t, d); }).length, pct = base.length ? Math.round(doneN / base.length * 100) : 0;
   var hour = new Date().getHours(), greet = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
   var mem = members();
@@ -627,12 +820,13 @@ function todayView() {
     week += '<button class="day' + (day === d ? ' on' : '') + (day === t0 ? ' today' : '') + '" data-day="' + day + '" aria-label="' + WD[i] + ' ' + parseYmd(day).getDate() + (has ? ', has tasks' : '') + '" aria-pressed="' + (day === d) + '"><span>' + WD[i] + '</span><b>' + parseYmd(day).getDate() + '</b>' + (has ? '<i></i>' : '') + '</button>';
   }
   var cards = list.map(function (t) {
-    var done = isDone(t, d), mineT = t.assignee === me.id;
+    var done = isDone(t, d), mineT = t.assignee === me.id, st = stOf(t, d);
     var idx = Math.max(0, mem.findIndex(function (m) { return m.userId === t.assignee; }));
     var from = mineT ? (t.createdBy === me.id ? 'My task' : 'From ' + nickOf(t.createdBy)) : 'For ' + nickOf(t.assignee) + (t.createdBy === me.id ? ' · from me' : '');
-    return '<div class="card ' + TONES[idx % TONES.length] + (done ? ' done' : '') + '">' +
-      '<button class="body" data-edit="' + t.id + '" aria-label="Edit ' + esc(t.title) + '"><span class="meta">' + ICON.clock + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + '</span>' +
-      '<span class="title">' + esc(t.title) + '</span><span class="meta">' + esc(from) + '</span></button>' +
+    var badge = st.s === 'ongoing' ? '<span class="badge ongoing">On going</span>' : st.s === 'later' ? '<span class="badge later">Later' + (st.until ? ' · ' + esc(fmtClock(st.until)) : '') + '</span>' : st.s === 'cancelled' ? '<span class="badge cancelled">Cancelled</span>' : '';
+    return '<div class="card ' + TONES[idx % TONES.length] + (done ? ' done' : '') + (st.s === 'cancelled' ? ' cancelled' : '') + '">' +
+      '<button class="body" data-edit="' + t.id + '" aria-label="Open ' + esc(t.title) + ', ' + ST_LABEL[st.s] + '"><span class="meta">' + ICON.clock + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + '</span>' +
+      '<span class="title">' + esc(t.title) + '</span><span class="meta">' + esc(from) + '</span>' + badge + '</button>' +
       '<div class="side"><button class="check" data-toggle="' + t.id + '" role="checkbox" aria-checked="' + done + '" aria-label="Mark ' + esc(t.title) + ' done"><span>' + (done ? ICON.tick : '') + '</span></button>' +
       '<div class="av" style="background:' + colorOf(t.assignee) + '" title="' + esc(nickOf(t.assignee)) + '">' + esc(initials(nickOf(t.assignee))) + '</div></div></div>';
   }).join('');
@@ -642,16 +836,16 @@ function todayView() {
   return '<div class="screen"><div class="header">' + headerBlobs() +
     '<div class="row between" style="position:relative"><div class="col"><span class="hello">' + greet + '</span><h1>' + esc(me.nickname) + '</h1></div>' +
     '<button class="iconbtn" id="bellBtn" aria-label="Notifications' + (S.unread ? ', ' + S.unread + ' new' : '') + '">' + ICON.bell + (S.unread ? '<span class="dot"></span>' : '') + '</button></div>' +
-    '<div class="col" style="gap:10px;position:relative"><span class="hello" style="font-weight:600">' + esc(S.data.group.name) + ' · ' + mem.length + ' member' + (mem.length === 1 ? '' : 's') + '</span>' +
+    '<div class="col" style="gap:10px;position:relative"><button class="gswitch" id="gSwitch" aria-label="Switch group. Now: ' + esc(S.data.group.name) + '"><span>' + esc(S.data.group.name) + ' · ' + esc(gt().label) + ' · ' + mem.length + ' member' + (mem.length === 1 ? '' : 's') + '</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
     '<div class="avatars">' + av + '<button class="av add" id="inviteBtn" aria-label="Invite family">' + ICON.plus.replace('currentColor', '#0F7C85') + '</button></div></div>' +
     '<div class="progress"><div class="ring" style="background:conic-gradient(#0F7C85 ' + pct + '%, #D7EEF0 0)"><div>' + pct + '%</div></div>' +
-    '<div class="col"><span style="font-weight:600">' + doneN + ' of ' + base.length + ' tasks done</span><span class="small">' + (base.length && doneN === base.length ? 'All done, great job!' : label + (S.tab === 'mine' ? ' · my tasks' : ' · whole family')) + '</span></div></div></div>' +
+    '<div class="col"><span style="font-weight:600">' + doneN + ' of ' + base.length + ' tasks done</span><span class="small">' + (base.length && doneN === base.length ? 'All done, great job!' : label + (S.tab === 'mine' ? ' · my tasks' : ' · everyone')) + '</span></div></div></div>' +
     '<div class="pad">' + notifAsk +
     '<div class="monthrow"><b>' + label + ' · ' + MONTHS[sel.getMonth()] + ' ' + sel.getFullYear() + '</b><div class="row" style="gap:6px">' +
     '<button class="navbtn" id="wkPrev" aria-label="Previous week">' + ICON.prev + '</button><button class="navbtn" id="wkNext" aria-label="Next week">' + ICON.next + '</button></div></div>' +
     '<div class="week">' + week + '</div>' +
     '<div class="tabs" role="tablist"><button class="tab' + (S.tab === 'mine' ? ' on' : '') + '" data-tab="mine" role="tab" aria-selected="' + (S.tab === 'mine') + '">My tasks</button>' +
-    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Whole family</button></div>' +
+    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Everyone</button></div>' +
     '<div class="stack cards">' + cards + '</div></div></div>';
 }
 
@@ -672,14 +866,14 @@ function planView() {
   return '<div class="screen"><div class="header">' + headerBlobs() +
     '<div class="col" style="position:relative"><span class="hello">Next 2 weeks</span><h1>Plan</h1></div></div>' +
     '<div class="pad"><div class="tabs" role="tablist"><button class="tab' + (S.tab === 'mine' ? ' on' : '') + '" data-tab="mine" role="tab" aria-selected="' + (S.tab === 'mine') + '">My tasks</button>' +
-    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Whole family</button></div>' +
+    '<button class="tab' + (S.tab === 'all' ? ' on' : '') + '" data-tab="all" role="tab" aria-selected="' + (S.tab === 'all') + '">Everyone</button></div>' +
     '<div class="stack cards">' + out + '</div></div></div>';
 }
 
 function navView() {
   function b(v, ic, label) { return '<button data-view="' + v + '" class="' + (S.view === v ? 'on' : '') + '"' + (S.view === v ? ' aria-current="page"' : '') + '>' + ic + label + '</button>'; }
   return '<a class="fab" href="#" id="fab" aria-label="Add task">' + ICON.plus.replace('currentColor', '#fff') + '</a>' +
-    '<nav class="nav">' + b('today', ICON.home, 'Home') + b('plan', ICON.cal, 'Plan') + '<div class="gap"></div>' + b('family', ICON.family, 'Family') + b('me', ICON.me, 'Me') + '</nav>';
+    '<nav class="nav">' + b('today', ICON.home, 'Home') + b('plan', ICON.cal, 'Plan') + '<div class="gap"></div>' + b('family', ICON.family, gt().nav) + b('me', ICON.me, 'Me') + '</nav>';
 }
 
 function addView() {
@@ -712,11 +906,12 @@ function familyView() {
     return '<div class="member"><span class="av" style="background:' + COLORS[i % COLORS.length] + '">' + esc(initials(m.nickname)) + '</span>' +
       '<span class="col" style="flex:1;min-width:0"><span style="font-weight:600">' + esc(m.nickname) + '</span><span class="small">' + (m.userId === me.id ? 'You · ' : '') + (m.role === 'admin' ? 'Admin' : 'Member') + '</span></span>' +
       '<span class="col" style="align-items:flex-end;gap:4px"><span style="font-size:13px;font-weight:600">' + dn + ' / ' + ts.length + '</span><span class="bar"><i style="width:' + (ts.length ? Math.round(dn / ts.length * 100) : 0) + '%"></i></span></span>' +
-      (admin && m.userId !== me.id ? '<button class="xbtn" data-remove="' + m.userId + '" aria-label="Remove ' + esc(m.nickname) + '">' + ICON.x + '</button>' : '') + '</div>';
+      (admin && m.userId !== me.id ? '<button class="xbtn" data-member="' + m.userId + '" aria-label="Options for ' + esc(m.nickname) + '">' + ICON.dots + '</button>' : '') + '</div>';
   }).join('');
   return '<div class="screen"><div class="header">' + headerBlobs() +
-    '<div class="col" style="position:relative"><h1 style="font-size:22px">' + esc(g.name) + '</h1><span class="hello">Private group · invite only</span></div>' +
-    '<div class="invite" style="position:relative"><span style="font-size:13px;color:#C9D2F0">Invite code. Share it only with family.</span>' +
+    '<div class="row between" style="position:relative;align-items:flex-start"><div class="col" style="min-width:0"><h1 style="font-size:22px">' + esc(g.name) + '</h1><span class="hello">' + esc(gt().label) + ' · private, invite only</span></div>' +
+    '<div class="row" style="gap:8px">' + (admin ? '<button class="iconbtn" id="gSettings" aria-label="Group settings">' + ICON.edit.replace(/18/g, '22') + '</button>' : '') + '<button class="iconbtn" id="gSwitch2" aria-label="Switch group">' + ICON.family + '</button></div></div>' +
+    '<div class="invite" style="position:relative"><span style="font-size:13px;color:#C9D2F0">Invite code. Share it only with your ' + esc(gt().word) + '.</span>' +
     '<span class="big">' + esc(g.code) + '</span>' +
     '<div class="grid2" style="gap:10px"><button class="btn sun" id="copyCode">' + ICON.copy + 'Copy</button><button class="btn line" id="shareCode">' + ICON.share + 'Share</button></div>' +
     (admin ? '<button class="linkbtn" id="newCode" style="color:#C9D2F0;align-self:flex-start;padding-left:0">Make a new code (old one stops working)</button>' : '') + '</div></div>' +
@@ -738,12 +933,15 @@ function meView() {
     '<div class="col"><h1>' + esc(me.nickname) + '</h1><span class="hello">@' + esc(me.username) + ' · ' + (me.role === 'admin' ? 'Admin' : 'Member') + '</span></div></div></div>' +
     '<div class="pad stack" style="margin-top:20px">' +
     '<div class="list"><button id="editNick"><span class="grow">Edit nickname</span>' + ICON.next + '</button>' +
+    '<button id="chgPw"><span class="grow">Change password</span>' + ICON.next + '</button>' +
+    '<button id="newRec"><span class="grow">Get a new recovery code</span>' + ICON.next + '</button>' +
     '<button id="notifBtn"><span class="grow">Notifications</span><span class="small">' + (perm === 'granted' ? 'On' : perm === 'denied' ? 'Blocked in settings' : perm === 'unsupported' ? 'Not supported here' : 'Off · tap to turn on') + '</span></button>' +
     '<button id="testNotif"><span class="grow">Send a test notification</span>' + ICON.next + '</button>' + install + '</div>' +
     (ios && !standalone && !NATIVE ? '<div class="note">On iPhone, notifications only work after you add the app to your Home Screen (iOS 16.4 or newer).</div>' : '') +
-    (!apiUrl() ? '<div class="note"><b>Demo mode:</b> your family data is only saved on this phone. Once the Google Sheet is connected, everyone shares the same list.</div>' : '') +
+    (!apiUrl() ? '<div class="note"><b>Demo mode:</b> your group data is only saved on this phone. Once the Google Sheet is connected, everyone shares the same list.</div>' : '') +
     '<div class="list"><a href="privacy.html"><span class="grow">Privacy policy</span>' + ICON.next + '</a>' +
-    '<button id="leaveBtn"><span class="grow">Leave family group</span></button>' +
+    '<button id="myGroups"><span class="grow">My groups</span><span class="small">' + ((S.data.groups || []).length) + '</span>' + ICON.next + '</button>' +
+    '<button id="leaveBtn"><span class="grow">Leave ' + esc(S.data.group.name) + '</span></button>' +
     '<button id="logoutBtn"><span class="grow">Log out</span></button>' +
     '<button id="deleteAcc" style="color:var(--danger)"><span class="grow">Delete my account</span></button></div>' +
     '<p class="small" style="text-align:center">Family Tasks · free and private</p></div></div>';
@@ -762,10 +960,13 @@ function bindMain() {
   document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { S.tab = b.getAttribute('data-tab'); ls('ft_tab', S.tab); render(); }; });
   document.querySelectorAll('[data-toggle]').forEach(function (b) { b.onclick = function () { toggleDone(b.getAttribute('data-toggle')); }; });
   document.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { S.date = b.getAttribute('data-open'); go('today'); }; });
-  document.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { openEdit(b.getAttribute('data-edit')); }; });
+  document.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { taskActions(b.getAttribute('data-edit')); }; });
   bind('#wkPrev', function () { S.date = addDays(S.date, -7); render(); });
   bind('#wkNext', function () { S.date = addDays(S.date, 7); render(); });
   bind('#inviteBtn', function () { go('family'); });
+  bind('#gSwitch', groupSheet);
+  bind('#gSwitch2', groupSheet);
+  bind('#gSettings', groupSettings);
   bind('#bellBtn', showInbox);
   bind('#notifOn', askNotify);
   // Add / edit
@@ -773,8 +974,9 @@ function bindMain() {
   // Family
   bind('#copyCode', function () { copyText(S.data.group.code); });
   bind('#shareCode', shareInvite);
-  bind('#newCode', function () { confirmSheet('Make a new invite code?', 'The old code will stop working. People already in the family stay.', 'Make new code', function () { api('newCode').then(function (r) { if (!r.ok) return toast(errText(r.error)); toast('New code: ' + r.code); sync(true); }); }); });
-  document.querySelectorAll('[data-remove]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-remove'); confirmSheet('Remove ' + nickOf(id) + '?', 'They will leave the family group. They can join again only with the invite code.', 'Remove', function () { api('removeMember', { userId: id }).then(function (r) { if (!r.ok) return toast(errText(r.error)); sync(true); }); }); }; });
+  bind('#newCode', function () { confirmSheet('Make a new invite code?', 'The old code will stop working. People already in the group stay.', 'Make new code', function () { api('newCode').then(function (r) { if (!r.ok) return toast(errText(r.error)); toast('New code: ' + r.code); sync(true); }); }); });
+  document.querySelectorAll('[data-member]').forEach(function (b) { b.onclick = function () { memberMenu(b.getAttribute('data-member')); }; });
+  document.querySelectorAll('[data-remove]').forEach(function (b) { b.onclick = function () { var id = b.getAttribute('data-remove'); confirmSheet('Remove ' + nickOf(id) + '?', 'They will leave the group. They can join again only with the invite code.', 'Remove', function () { api('removeMember', { userId: id }).then(function (r) { if (!r.ok) return toast(errText(r.error)); sync(true); }); }); }; });
   bind('#editNick', editNickname);
   // Me
   bind('#notifBtn', askNotify);
@@ -782,8 +984,11 @@ function bindMain() {
   bind('#installBtn', function () { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; } });
   bind('#iosHelp', function () { infoSheet('Add to Home Screen', 'In Safari, tap the Share button (square with an arrow), then choose “Add to Home Screen”. Open Family Tasks from your Home Screen to get notifications.'); });
   bind('#logoutBtn', logout);
-  bind('#leaveBtn', function () { confirmSheet('Leave ' + S.data.group.name + '?', 'Your tasks stay with the family. You can join again with the invite code.', 'Leave group', function () { api('leaveGroup').then(function (r) { if (!r.ok) return toast(errText(r.error)); S.data = null; ls('ft_cache', null); S.view = 'today'; render(); }); }); });
+  bind('#leaveBtn', function () { confirmSheet('Leave ' + S.data.group.name + '?', 'Your tasks stay with the group. You can join again with the invite code.', 'Leave group', function () { api('leaveGroup').then(function (r) { if (!r.ok) return toast(errText(r.error)); var rest = (r.groups || []); S.gid = rest.length ? rest[0].id : ''; ls('ft_gid', S.gid || null); S.view = 'today'; if (rest.length) { toast('You left the group'); sync(true); } else { S.data = null; ls('ft_cache', null); render(); } }); }); });
   bind('#deleteAcc', deleteAccount);
+  bind('#chgPw', changePassword);
+  bind('#myGroups', groupSheet);
+  bind('#newRec', newRecovery);
 }
 
 function openEdit(id) {
@@ -817,11 +1022,192 @@ function bindAdd() {
 function toggleDone(id) {
   var d = S.date, t = null; S.data.tasks.forEach(function (x) { if (x.id === id) t = x; });
   if (!t) return;
-  var i = t.done.indexOf(d); if (i >= 0) t.done.splice(i, 1); else t.done.push(d);
+  var i = t.done.indexOf(d); if (i >= 0) t.done.splice(i, 1); else { t.done.push(d); if (t.status) delete t.status[d]; }
   render();
   api('toggleDone', { taskId: id, date: d }).then(function (r) {
     if (!r.ok) { toast(errText(r.error)); sync(true); return; }
-    t.done = r.done; saveCache(); scheduleNative();
+    t.done = r.done; if (r.status) t.status = r.status; saveCache(); scheduleNative();
+  });
+}
+
+// ---------- Task actions: done, on going, later, remind, nudge, cancel ----------
+function findTask(id) { var t = null; ((S.data && S.data.tasks) || []).forEach(function (x) { if (x.id === id) t = x; }); return t; }
+function taskActions(id) {
+  var t = findTask(id); if (!t) return;
+  var d = S.date, me = S.data.me, st = stOf(t, d), mineT = t.assignee === me.id;
+  var who = mineT ? 'you' : nickOf(t.assignee);
+  var line = st.s === 'done' ? 'Done' : st.s === 'todo' ? 'To do' :
+    ST_LABEL[st.s] + ' · by ' + (st.by === me.id ? 'you' : nickOf(st.by)) + ' ' + fmtWhen(st.at) + (st.until ? ' · until ' + fmtWhen(st.until) : '') + (st.note ? ' · “' + st.note + '”' : '');
+  var myRem = myReminders().filter(function (r) { return r.taskId === t.id && r.at > Date.now(); })[0];
+  function act(key, icon, label, sub, cls) { return '<button class="act ' + (cls || '') + '" data-act="' + key + '"><b>' + icon + esc(label) + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</button>'; }
+  var acts = '';
+  acts += st.s === 'done' ? act('todo', ICON.undo, 'Not done yet', 'Move back to to-do') : act('done', ICON.done, 'Done', 'Finished it', 'primary');
+  acts += act('ongoing', ICON.play, st.s === 'ongoing' ? 'On going ✓' : 'On going', 'Working on it now', st.s === 'ongoing' ? 'on' : '');
+  acts += act('later', ICON.later, 'Do it later', st.s === 'later' && st.until ? 'Set for ' + fmtClock(st.until) : 'Pick a new time', st.s === 'later' ? 'on' : '');
+  acts += act('remind', ICON.bell.replace(/width="22" height="22"/, 'width="18" height="18"'), 'Remind me', myRem ? 'Set for ' + fmtWhen(myRem.at) : 'Get a reminder on this phone', myRem ? 'on' : '');
+  if (!mineT) acts += act('nudge', ICON.megaphone, 'Remind ' + nickOf(t.assignee), 'Send them a notification');
+  acts += st.s === 'cancelled' ? act('todo', ICON.undo, 'Restore', 'Back to to-do') : act('cancel', ICON.ban, 'Cancel', mineT ? 'Skip it for this day' : 'Skip it for this day', 'warn');
+  if (st.s !== 'todo' && st.s !== 'done' && st.s !== 'cancelled') acts += act('todo', ICON.undo, 'Back to to-do', 'Clear the status');
+  sheet('<div class="col" style="gap:4px"><span class="small">' + esc(fmtTime(t.time)) + ' · ' + REPEAT_LABEL[t.repeat] + ' · for ' + esc(who) + (t.createdBy !== me.id ? ' · from ' + esc(nickOf(t.createdBy)) : '') + '</span><h2 style="font-size:19px">' + esc(t.title) + '</h2></div>' +
+    '<div class="statusline"><b>Status:</b> ' + esc(line) + '</div>' +
+    '<div class="actions">' + acts + '</div>' +
+    '<div class="list" style="border:1.5px solid var(--line)"><button data-act="edit">' + ICON.edit + '<span class="grow">Edit task</span>' + ICON.next + '</button>' + (myRem ? '<button data-act="unremind">' + ICON.x + '<span class="grow">Remove my reminder</span></button>' : '') + '</div>' +
+    '<button class="btn ghost" id="sNo">Close</button>', function (host) {
+    $('#sNo').onclick = closeSheet;
+    host.querySelectorAll('[data-act]').forEach(function (b) {
+      b.onclick = function () {
+        var a = b.getAttribute('data-act');
+        if (a === 'done' || a === 'ongoing' || a === 'todo') { closeSheet(); setStatus(t, d, a); }
+        else if (a === 'later') laterSheet(t, d);
+        else if (a === 'remind') remindSheet(t, d);
+        else if (a === 'cancel') cancelSheet(t, d);
+        else if (a === 'nudge') { closeSheet(); api('nudge', { taskId: t.id }).then(function (r) { toast(r.ok ? 'Reminder sent to ' + nickOf(t.assignee) : errText(r.error)); }); }
+        else if (a === 'edit') { closeSheet(); openEdit(t.id); }
+        else if (a === 'unremind') { saveReminders(myReminders().filter(function (r) { return r.taskId !== t.id; })); closeSheet(); toast('Reminder removed'); scheduleNative(); }
+      };
+    });
+  });
+}
+function setStatus(t, d, status, extra) {
+  extra = extra || {};
+  var old = { done: t.done.slice(), status: JSON.parse(JSON.stringify(t.status || {})) };
+  t.status = t.status || {};
+  var i = t.done.indexOf(d); if (i >= 0) t.done.splice(i, 1);
+  delete t.status[d];
+  if (status === 'done') t.done.push(d);
+  else if (status !== 'todo') t.status[d] = { s: status, by: S.data.me.id, at: Date.now(), until: extra.until, note: extra.note };
+  render();
+  toast({ done: 'Marked done', ongoing: 'Marked as on going', later: 'Moved to later', cancelled: 'Cancelled for this day', todo: 'Back to to-do' }[status]);
+  api('setStatus', { taskId: t.id, date: d, status: status, until: extra.until, note: extra.note }).then(function (r) {
+    if (!r.ok) { t.done = old.done; t.status = old.status; render(); toast(errText(r.error)); return; }
+    t.done = r.done; t.status = r.status; saveCache(); scheduleNative();
+  });
+}
+function atTime(hhmm, dayOffset) { var x = new Date(); x.setDate(x.getDate() + (dayOffset || 0)); x.setHours(+hhmm.slice(0, 2), +hhmm.slice(3), 0, 0); return x.getTime(); }
+function timeOptions() {
+  var now = Date.now(), o = [['In 15 min', now + 15 * 6e4], ['In 30 min', now + 30 * 6e4], ['In 1 hour', now + 36e5], ['In 3 hours', now + 3 * 36e5]];
+  var eve = atTime('19:00'); if (eve > now + 36e5) o.push(['This evening, 7 PM', eve]);
+  o.push(['Tomorrow, 8 AM', atTime('08:00', 1)]);
+  return o;
+}
+function pickTimeSheet(title, intro, withNote, onPick) {
+  var o = timeOptions();
+  sheet('<h2>' + esc(title) + '</h2>' + (intro ? '<p class="small" style="margin:0;font-size:14px">' + esc(intro) + '</p>' : '') +
+    '<div class="opts">' + o.map(function (x, i) { return '<button data-opt="' + i + '">' + esc(x[0]) + '</button>'; }).join('') + '</div>' +
+    '<div class="grid2" style="align-items:end"><div class="field"><label for="ctime">Or pick a time</label><input class="input" id="ctime" type="time"></div><button class="btn teal" id="cOk" style="height:50px">Set</button></div>' +
+    (withNote ? '<div class="field"><label for="cnote">Note (optional)</label><input class="input" id="cnote" maxlength="120" placeholder="e.g. after my homework"></div>' : '') +
+    '<button class="btn ghost" id="sNo">Back</button>', function (host) {
+    $('#sNo').onclick = closeSheet;
+    function done(ms) { var n = withNote ? $('#cnote').value.trim() : ''; closeSheet(); onPick(ms, n); }
+    host.querySelectorAll('[data-opt]').forEach(function (b) { b.onclick = function () { done(o[+b.getAttribute('data-opt')][1]); }; });
+    $('#cOk').onclick = function () { var v = $('#ctime').value; if (!v) { $('#ctime').focus(); return; } var ms = atTime(v); if (ms <= Date.now()) ms = atTime(v, 1); done(ms); };
+  });
+}
+function laterSheet(t, d) {
+  var mineT = t.assignee === S.data.me.id;
+  pickTimeSheet('Do it later', 'When will it be done?' + (mineT ? ' You will get a reminder then.' : ''), true, function (ms, note) {
+    if (mineT) addReminder(t, ms);
+    setStatus(t, d, 'later', { until: ms, note: note });
+  });
+}
+function remindSheet(t, d) {
+  pickTimeSheet('Remind me', 'This phone will remind you about “' + t.title + '”.', false, function (ms) { addReminder(t, ms); toast('Reminder set for ' + fmtWhen(ms)); });
+}
+function cancelSheet(t, d) {
+  sheet('<h2>Cancel this task?</h2><p class="small" style="margin:0;font-size:14px">“' + esc(t.title) + '” will be skipped for ' + (d === todayStr() ? 'today' : esc(d)) + '.' + (t.repeat !== 'once' ? ' It still repeats on other days.' : '') + '</p>' +
+    '<div class="field"><label for="cnote">Reason (optional)</label><input class="input" id="cnote" maxlength="120" placeholder="e.g. it is raining"></div>' +
+    '<button class="btn danger" id="sOk">Cancel task</button><button class="btn ghost" id="sNo">Keep it</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () { var n = $('#cnote').value.trim(); closeSheet(); setStatus(t, d, 'cancelled', { note: n }); };
+  });
+}
+// Personal reminders, kept on this phone
+function myReminders() { try { return JSON.parse(ls('ft_rems') || '[]'); } catch (e) { return []; } }
+function saveReminders(a) { ls('ft_rems', JSON.stringify(a)); }
+function addReminder(t, ms) {
+  var a = myReminders().filter(function (r) { return r.taskId !== t.id && r.at > Date.now() - 864e5; });
+  a.push({ taskId: t.id, title: t.title, at: ms }); saveReminders(a); scheduleNative();
+  if (notifState() === 'default') askNotify();
+}
+function firePersonalReminders() {
+  var now = Date.now(), a = myReminders(), left = [];
+  a.forEach(function (r) {
+    if (r.at <= now) { if (!NATIVE && now - r.at < 30 * 6e4) { notify('Reminder: ' + r.title, 'You asked to be reminded', 'rem' + r.taskId); toast('Reminder: ' + r.title); } }
+    else left.push(r);
+  });
+  if (left.length !== a.length) saveReminders(left);
+}
+
+// ---------- Passwords ----------
+function pwInput(id, label, auto, ph) {
+  return '<div class="field"><label for="' + id + '">' + label + '</label><div class="pwwrap"><input class="input pw" id="' + id + '" type="password" autocomplete="' + auto + '" placeholder="' + (ph || '') + '"><button type="button" class="eye" data-eye="' + id + '" aria-label="Show password" aria-pressed="false">' + ICON.eye + '</button></div></div>';
+}
+function showRecovery(code, isNew) {
+  sheet('<h2>' + (isNew ? 'Save your recovery code' : 'Your new recovery code') + '</h2>' +
+    '<p style="margin:0;font-size:14px">If you forget your password, this code lets you make a new one. Write it down or take a screenshot. <b>It is shown only once.</b></p>' +
+    '<div class="reccode">' + esc(code) + '</div>' +
+    '<button class="btn sun" id="rCopy">' + ICON.copy + 'Copy code</button><button class="btn" id="sOk">I saved it</button>', function () {
+    $('#rCopy').onclick = function () { copyText(code); };
+    $('#sOk').onclick = closeSheet;
+  });
+}
+function forgotPassword(prefill) {
+  sheet('<h2>Forgot password?</h2>' +
+    '<p class="small" style="margin:0;font-size:14px">Use the <b>recovery code</b> you saved when you made your account. No code? Ask your group admin to open the members page, tap <b>⋯</b> next to your name, then <b>Reset password</b>. They will get a reset code to give you.</p>' +
+    '<div class="field"><label for="fu">Username</label><input class="input" id="fu" autocapitalize="none" spellcheck="false" value="' + esc(prefill || '') + '"></div>' +
+    '<div class="field"><label for="fc">Recovery code or reset code</label><input class="input code" id="fc" autocapitalize="characters" placeholder="ABCD-EFGH"></div>' +
+    pwInput('fp', 'New password', 'new-password', 'At least 6 characters') + pwInput('fp2', 'Confirm new password', 'new-password', 'Type it again') +
+    '<div class="err" id="fErr" role="alert"></div><button class="btn teal" id="sOk">Save new password</button><button class="btn ghost" id="sNo">Back to log in</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () {
+      $('#fErr').textContent = '';
+      if ($('#fp').value !== $('#fp2').value) { $('#fErr').textContent = 'The passwords do not match. Please type them again.'; return; }
+      var b = $('#sOk'); b.disabled = true;
+      api('resetPassword', { username: $('#fu').value, code: $('#fc').value, password: $('#fp').value, token: '' }).then(function (r) {
+        b.disabled = false;
+        if (!r.ok) { $('#fErr').textContent = errText(r.error); return; }
+        closeSheet(); S.token = r.token; ls('ft_token', r.token); toast('Password changed. Welcome back!');
+        if (r.group) sync(true); else { S.data = null; render(); }
+      });
+    };
+  });
+}
+function changePassword() {
+  sheet('<h2>Change password</h2>' + pwInput('op', 'Current password', 'current-password') + pwInput('np', 'New password', 'new-password', 'At least 6 characters') + pwInput('np2', 'Confirm new password', 'new-password', 'Type it again') +
+    '<div class="err" id="cErr" role="alert"></div><button class="btn teal" id="sOk">Change password</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () {
+      if ($('#np').value !== $('#np2').value) { $('#cErr').textContent = 'The new passwords do not match.'; return; }
+      api('changePassword', { oldPassword: $('#op').value, password: $('#np').value }).then(function (r) {
+        if (!r.ok) { $('#cErr').textContent = errText(r.error); return; }
+        closeSheet(); toast('Password changed. Other phones were logged out.');
+      });
+    };
+  });
+}
+function newRecovery() {
+  sheet('<h2>New recovery code</h2><p class="small" style="margin:0;font-size:14px">Your old recovery code will stop working. Type your password to continue.</p>' + pwInput('rp', 'Password', 'current-password') +
+    '<div class="err" id="rErr" role="alert"></div><button class="btn teal" id="sOk">Get new code</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#sOk').onclick = function () { api('newRecoveryCode', { password: $('#rp').value }).then(function (r) { if (!r.ok) { $('#rErr').textContent = errText(r.error); return; } showRecovery(r.recoveryCode, false); }); };
+  });
+}
+function memberMenu(id) {
+  var n = nickOf(id);
+  sheet('<h2>' + esc(n) + '</h2><div class="list" style="border:1.5px solid var(--line)">' +
+    '<button id="mReset"><span class="grow">Reset password</span><span class="small">If they forgot it</span></button>' +
+    '<button id="mRemove" style="color:var(--danger)"><span class="grow">Remove from group</span></button></div><button class="btn ghost" id="sNo">Close</button>', function () {
+    $('#sNo').onclick = closeSheet;
+    $('#mReset').onclick = function () {
+      api('adminResetCode', { userId: id }).then(function (r) {
+        if (!r.ok) return toast(errText(r.error));
+        sheet('<h2>Reset code for ' + esc(r.nickname) + '</h2><p style="margin:0;font-size:14px">Give this code to ' + esc(r.nickname) + '. On the log in screen they tap <b>Forgot password?</b>, type username <b>' + esc(r.username) + '</b> and this code, then choose a new password. It works once, for 24 hours.</p>' +
+          '<div class="reccode">' + esc(r.code) + '</div><button class="btn sun" id="rCopy">' + ICON.copy + 'Copy code</button><button class="btn" id="sOk">Done</button>', function () {
+          $('#rCopy').onclick = function () { copyText(r.code); }; $('#sOk').onclick = closeSheet;
+        });
+      });
+    };
+    $('#mRemove').onclick = function () { confirmSheet('Remove ' + n + '?', 'They will leave the group. They can join again only with the invite code.', 'Remove', function () { api('removeMember', { userId: id }).then(function (r) { if (!r.ok) return toast(errText(r.error)); sync(true); }); }); };
   });
 }
 
@@ -841,13 +1227,13 @@ function confirmSheet(title, text, okLabel, fn) {
 }
 function infoSheet(title, text) { sheet('<h2>' + esc(title) + '</h2><p style="margin:0">' + esc(text) + '</p><button class="btn" id="sOk">OK</button>', function () { $('#sOk').onclick = closeSheet; }); }
 function editNickname() {
-  sheet('<h2>Your nickname</h2><div class="field"><label for="nn">Nickname your family sees</label><input class="input" id="nn" maxlength="20" value="' + esc(S.data.me.nickname) + '"></div><div class="err" id="nErr"></div><button class="btn teal" id="sOk">Save</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+  sheet('<h2>Your nickname</h2><div class="field"><label for="nn">Nickname your group sees</label><input class="input" id="nn" maxlength="20" value="' + esc(S.data.me.nickname) + '"></div><div class="err" id="nErr"></div><button class="btn teal" id="sOk">Save</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
     $('#sNo').onclick = closeSheet;
     $('#sOk').onclick = function () { api('setNickname', { nickname: $('#nn').value }).then(function (r) { if (!r.ok) { $('#nErr').textContent = errText(r.error); return; } closeSheet(); sync(true); }); };
   });
 }
 function deleteAccount() {
-  sheet('<h2>Delete my account</h2><p class="small" style="margin:0;font-size:14px">This removes your login and takes you out of the family group. Type your password to confirm.</p><div class="field"><label for="dp">Password</label><div class="pwwrap"><input class="input pw" id="dp" type="password" autocomplete="current-password"><button type="button" class="eye" data-eye="dp" aria-label="Show password" aria-pressed="false">' + ICON.eye + '</button></div></div><div class="err" id="dErr"></div><button class="btn danger" id="sOk">Delete my account</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
+  sheet('<h2>Delete my account</h2><p class="small" style="margin:0;font-size:14px">This removes your login and takes you out of all your groups. Type your password to confirm.</p><div class="field"><label for="dp">Password</label><div class="pwwrap"><input class="input pw" id="dp" type="password" autocomplete="current-password"><button type="button" class="eye" data-eye="dp" aria-label="Show password" aria-pressed="false">' + ICON.eye + '</button></div></div><div class="err" id="dErr"></div><button class="btn danger" id="sOk">Delete my account</button><button class="btn ghost" id="sNo">Cancel</button>', function () {
     $('#sNo').onclick = closeSheet;
     $('#sOk').onclick = function () { api('deleteAccount', { password: $('#dp').value }).then(function (r) { if (!r.ok) { $('#dErr').textContent = errText(r.error); return; } closeSheet(); clearLocal(); render(); toast('Your account was deleted.'); }); };
   });
@@ -869,7 +1255,7 @@ function copyText(s) {
     .catch(function () { infoSheet('Invite code', s); });
 }
 function shareInvite() {
-  var g = S.data.group, text = 'Join our family "' + g.name + '" on Family Tasks. Invite code: ' + g.code;
+  var g = S.data.group, text = 'Join our ' + gt().word + ' "' + g.name + '" on Family Tasks. Invite code: ' + g.code;
   var url = APP_URL + '#join=' + g.code;
   if (NATIVE && PL.Share) return PL.Share.share({ title: 'Family Tasks invite', text: text, url: url }).catch(function () {});
   if (navigator.share) return navigator.share({ title: 'Family Tasks invite', text: text, url: url }).catch(function () {});
@@ -886,11 +1272,12 @@ function sync(rerender) {
     syncing = false;
     if (!r.ok) {
       if (r.error === 'not_logged_in') { clearLocal(); render(); }
-      else if (r.error === 'no_group') { S.data = null; ls('ft_cache', null); render(); }
+      else if (r.error === 'no_group') { S.data = null; S.gid = ''; ls('ft_gid', null); ls('ft_cache', null); render(); }
       else if (rerender) render();
       return;
     }
     S.data = r; saveCache();
+    if (r.group && r.group.id !== S.gid) { S.gid = r.group.id; ls('ft_gid', S.gid); }
     if (r.events.length) {
       var inbox = []; try { inbox = JSON.parse(ls('ft_inbox') || '[]'); } catch (e) {}
       var fresh = S.lastEvent > 0;
@@ -907,8 +1294,8 @@ function sync(rerender) {
 }
 function logout() { api('logout'); clearLocal(); render(); }
 function clearLocal() {
-  ['ft_token', 'ft_cache', 'ft_inbox', 'ft_lastEvent', 'ft_reminded'].forEach(function (k) { ls(k, null); });
-  S.token = null; S.data = null; S.view = 'today'; S.lastEvent = 0; S.unread = 0; S.authMode = 'login';
+  ['ft_token', 'ft_cache', 'ft_inbox', 'ft_lastEvent', 'ft_reminded', 'ft_rems', 'ft_gid'].forEach(function (k) { ls(k, null); });
+  S.token = null; S.data = null; S.gid = ''; S.adding = false; S.view = 'today'; S.lastEvent = 0; S.unread = 0; S.authMode = 'login';
   if (NATIVE && PL.LocalNotifications) PL.LocalNotifications.getPending().then(function (p) { if (p.notifications.length) PL.LocalNotifications.cancel({ notifications: p.notifications }); }).catch(function () {});
 }
 
@@ -944,7 +1331,8 @@ function checkReminders() {
   var now = new Date(), d = ymd(now), hm = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
   var done = {}; try { done = JSON.parse(ls('ft_reminded') || '{}'); } catch (e) {}
   tasksOn(d).forEach(function (t) {
-    if (t.assignee !== S.data.me.id || !t.time || isDone(t, d) || !t.notify) return;
+    var stt = stOf(t, d).s;
+    if (t.assignee !== S.data.me.id || !t.time || stt === 'done' || stt === 'cancelled' || stt === 'later' || !t.notify) return;
     var key = t.id + d;
     if (t.time <= hm && !done[key]) {
       done[key] = 1;
@@ -964,12 +1352,14 @@ function scheduleNative() {
     for (var i = 0; i < 7; i++) {
       var d = addDays(todayStr(), i);
       tasksOn(d).forEach(function (t, k) {
-        if (t.assignee !== me || !t.time || !t.notify || isDone(t, d)) return;
+        var stt = stOf(t, d).s;
+        if (t.assignee !== me || !t.time || !t.notify || stt === 'done' || stt === 'cancelled' || stt === 'later') return;
         var at = parseYmd(d); at.setHours(+t.time.slice(0, 2), +t.time.slice(3), 0, 0);
         if (at.getTime() <= now) return;
         list.push({ id: 100000 + i * 1000 + (list.length % 1000), title: 'Reminder: ' + t.title, body: fmtTime(t.time) + (t.createdBy !== me ? ' · from ' + nickOf(t.createdBy) : ''), schedule: { at: at, allowWhileIdle: true } });
       });
     }
+    myReminders().forEach(function (r, k) { if (r.at > now) list.push({ id: 100000 + 7000 + k, title: 'Reminder: ' + r.title, body: 'You asked to be reminded', schedule: { at: new Date(r.at), allowWhileIdle: true } }); });
     LN.getPending().then(function (p) {
       var old = p.notifications.filter(function (n) { return n.id >= 100000; });
       return old.length ? LN.cancel({ notifications: old }) : null;
@@ -1008,7 +1398,7 @@ render();
 if (S.token) sync(true);
 if (location.hash === '#owner') ownerSettings();
 setInterval(function () { if (!document.hidden) sync(); }, 30000);
-setInterval(checkReminders, 20000);
+setInterval(function () { checkReminders(); firePersonalReminders(); }, 20000);
 document.addEventListener('visibilitychange', function () { if (!document.hidden) { sync(); checkReminders(); } });
 if (!NATIVE && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/claude|anthropic|usercontent/.test(location.hostname)) {
   navigator.serviceWorker.register('sw.js').then(function (r) { swReg = r; }).catch(function () {});

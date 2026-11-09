@@ -37,7 +37,8 @@ function doPost(e) {
   var req; try { req = JSON.parse(e.postData.contents || '{}'); } catch (err) { return out({ ok: false, error: 'bad_request' }); }
   var cache = CacheService.getScriptCache();
   var user = String(req.username || '').toLowerCase().slice(0, 40);
-  if (req.action === 'login' && Number(cache.get('fail_' + user) || 0) >= MAX_FAILED_LOGINS) return out({ ok: false, error: 'too_many_tries' });
+  var guarded = req.action === 'login' || req.action === 'resetPassword';
+  if (guarded && Number(cache.get('fail_' + user) || 0) >= MAX_FAILED_LOGINS) return out({ ok: false, error: 'too_many_tries' });
   if (req.action === 'signup') {
     var day = 'signups_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd');
     if (Number(cache.get(day) || 0) >= MAX_SIGNUPS_PER_DAY) return out({ ok: false, error: 'signups_full_today' });
@@ -50,7 +51,7 @@ function doPost(e) {
   try {
     var res = c.A[req.action](req);
     c.flush();
-    if (req.action === 'login' && !res.ok) cache.put('fail_' + user, String(Number(cache.get('fail_' + user) || 0) + 1), 900);
+    if (guarded && !res.ok) cache.put('fail_' + user, String(Number(cache.get('fail_' + user) || 0) + 1), 900);
     if (req.action === 'signup' && res.ok) { var d = 'signups_' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd'); cache.put(d, String(Number(cache.get(d) || 0) + 1), 86400); }
     return out(res);
   } catch (err) {
@@ -68,6 +69,8 @@ function core() {
   function load(t) {
     if (cache[t]) return cache[t];
     var sh = sheet(t), n = sh.getLastRow(), cols = TABLES[t];
+    // Older sheets: add any new columns to the header row
+    if (sh.getLastColumn() < cols.length) { sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@'); sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold'); }
     var vals = n > 1 ? sh.getRange(2, 1, n - 1, cols.length).getValues() : [];
     cache[t] = vals.map(function (r) { var o = {}; cols.forEach(function (c, i) { o[c] = r[i] === '' ? '' : String(r[i]); }); return o; });
     return cache[t];
